@@ -72,3 +72,28 @@ export const updateSystemSetting = async (key, value) => {
     if (!response.ok) throw new Error(data.error || 'Failed to update setting.');
     return data;
 };
+
+export const updateEvaluationResult = async (id, newResult) => {
+    const response = await fetch(`${API_BASE_URL}/ai/history/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ evaluationResult: newResult })
+    });
+    if (!response.ok) throw new Error('Failed to update evaluation.');
+    return await response.json();
+};
+
+export const sendEvaluationToStudent = async (id) => {
+    const response = await fetch(`${API_BASE_URL}/ai/history/${id}/send`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) throw new Error('Failed to send report.');
+    return await response.json();
+};
+
+export const getStudentReports = async (groupCode) => {
+    const response = await fetch(`${API_BASE_URL}/ai/student-reports?groupCode=${encodeURIComponent(groupCode)}`);
+    if (!response.ok) throw new Error('Failed to fetch student reports.');
+    return await response.json();
+};

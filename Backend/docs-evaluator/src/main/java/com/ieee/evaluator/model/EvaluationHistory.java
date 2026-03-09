@@ -23,4 +23,7 @@ public class EvaluationHistory {
     private String evaluationResult;
 
     private LocalDateTime evaluatedAt;
+
+    @Column(name = "is_sent", columnDefinition = "boolean default false")
+    private Boolean isSent = false;
 }
