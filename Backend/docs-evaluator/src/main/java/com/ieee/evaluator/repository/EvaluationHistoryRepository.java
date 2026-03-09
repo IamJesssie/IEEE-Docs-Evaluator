@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface EvaluationHistoryRepository extends JpaRepository<EvaluationHistory, Long> {
     List<EvaluationHistory> findAllByOrderByEvaluatedAtDesc();
+    
+    List<EvaluationHistory> findByIsSentTrueAndFileNameContainingIgnoreCaseOrderByEvaluatedAtDesc(String groupCode);
 }

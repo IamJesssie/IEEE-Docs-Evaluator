@@ -98,7 +98,7 @@ public class OpenRouterService implements AiProvider {
                 Map.of("role", "user", "content", contentList)
             ));
             requestBody.put("temperature", 0.3);
-            requestBody.put("max_tokens", 400); 
+            requestBody.put("max_tokens", 100); 
 
             String jsonBody = objectMapper.writeValueAsString(requestBody);
             HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);

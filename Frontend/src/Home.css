@@ -1,0 +1,8 @@
+.student-dash-root { display: flex; height: 100vh; width: 100vw; background-color: #f0f2f7; font-family: 'DM Sans', sans-serif; overflow: hidden; }
+.student-sidebar { width: 240px; background-color: #1e293b; color: #f8fafc; padding: 28px 20px; display: flex; flex-direction: column; }
+.student-main { flex: 1; padding: 40px; overflow-y: auto; }
+.student-card { background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); padding: 24px; margin-bottom: 24px; }
+.student-header { margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+.student-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+.student-table th { text-align: left; padding: 12px; border-bottom: 2px solid #f1f5f9; color: #64748b; font-size: 13px; text-transform: uppercase; }
+.student-table td { padding: 16px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 14px; }

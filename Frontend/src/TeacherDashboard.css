@@ -1,0 +1,74 @@
+/* TeacherDashboard.css */
+
+/* Core Layout */
+.td-root { display: flex; height: 100vh; width: 100vw; font-family: 'DM Sans', sans-serif; background-color: #f0f2f7; overflow: hidden; }
+.td-sidebar { width: 240px; background-color: #0f172a; color: #e2e8f0; padding: 28px 20px; display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+.td-sidebar-brand { font-size: 18px; font-weight: 700; color: #ffffff; margin-bottom: 4px; }
+.td-sidebar-role { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 36px; }
+.td-nav-item { padding: 10px 14px; border-radius: 8px; color: #cbd5e1; cursor: pointer; margin-bottom: 4px; transition: background-color 0.2s; }
+.td-nav-item:hover { background-color: #1e293b; }
+.td-nav-item-active { padding: 10px 14px; border-radius: 8px; background-color: #e11d48; color: #ffffff; font-weight: 600; cursor: pointer; margin-bottom: 4px; }
+.td-sign-out-btn { margin-top: auto; background: none; color: #94a3b8; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 14px; cursor: pointer; text-align: left; transition: all 0.2s; }
+.td-sign-out-btn:hover { background-color: #1e293b; color: white; }
+.td-main { flex: 1; min-height: 0; padding: 36px 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+
+/* Headers & Text */
+.td-header { display: flex; justify-content: space-between; align-items: center; }
+.td-header-title { font-size: 24px; margin: 0 0 8px 0; color: #0F172A; font-weight: 700; }
+.td-subtitle { font-size: 14px; color: #64748b; margin: 0; }
+
+/* Buttons */
+.td-sync-btn { background-color: #059669; color: #ffffff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+.td-sync-btn:hover { opacity: 0.9; }
+.td-sync-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.td-refresh-btn { background-color: #ffffff; color: #2563eb; border: 1px solid #2563eb; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
+.td-refresh-btn:hover { background-color: #eff6ff; }
+.td-analyze-btn { color: #059669; background: none; border: 1px solid #a7f3d0; border-radius: 6px; padding: 5px 12px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+.td-analyze-btn:hover { background-color: #f0fdf4; }
+
+/* Cards & Tables */
+.td-card { background-color: #ffffff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.td-table-container { overflow-x: auto; }
+.td-table { width: 100%; border-collapse: collapse; }
+.td-th { padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; background-color: #f8fafc; cursor: pointer; }
+.td-th:hover { background-color: #f1f5f9; }
+.td-td { padding: 14px 16px; font-size: 14px; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
+.td-badge { background-color: #eff6ff; color: #1d4ed8; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+
+/* Smooth Toast Notification (Replaces window.alert) */
+.td-toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background-color: #334155;
+    color: white;
+    padding: 14px 24px;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    font-weight: 500;
+    font-size: 14px;
+    z-index: 2000;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.td-toast.show { transform: translateY(0); opacity: 1; }
+.td-toast.success { background-color: #059669; }
+.td-toast.error { background-color: #dc2626; }
+
+/* Global Utilities */
+@keyframes pulse-light {
+    0% { background-color: #ffffff; }
+    50% { background-color: #eff6ff; }
+    100% { background-color: #ffffff; }
+}
+.loading-row { animation: pulse-light 1.5s infinite ease-in-out; }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
