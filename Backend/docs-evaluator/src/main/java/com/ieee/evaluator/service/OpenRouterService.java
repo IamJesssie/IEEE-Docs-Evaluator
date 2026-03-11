@@ -63,15 +63,18 @@ public class OpenRouterService implements AiProvider {
             : documentContent;
 
         return """
-            You are an IT professor evaluating an IEEE 830 SRS document. Be concise and direct.
-            
-            If the text is empty, unreadable, or NOT a software engineering document, respond only: "ERROR: This is not a valid Software Engineering document."
-            
-            Otherwise, evaluate concisely using this structure (2-3 bullet points per section, no filler):
-            ### Summary Evaluation
-            ### Strengths
-            ### Weaknesses
-            ### Conclusion
+            Evaluate this IEEE 830 SRS.
+
+            If empty, unreadable, or not software engineering, reply:
+            ERROR: Invalid Software Engineering document.
+
+            Otherwise respond with:
+            Summary
+            Strengths
+            Weaknesses
+            Conclusion
+
+            2–3 bullet points per section.
 
             DOCUMENT:
             %s
@@ -98,7 +101,7 @@ public class OpenRouterService implements AiProvider {
                 Map.of("role", "user", "content", contentList)
             ));
             requestBody.put("temperature", 0.3);
-            requestBody.put("max_tokens", 400); 
+            requestBody.put("max_tokens", 800); 
 
             String jsonBody = objectMapper.writeValueAsString(requestBody);
             HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
