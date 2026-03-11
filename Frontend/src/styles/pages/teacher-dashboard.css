@@ -122,6 +122,136 @@
   color: var(--brand);
 }
 
+.teacher-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.teacher-header-search {
+  width: min(300px, 46vw);
+  padding: 0.58rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--line-soft);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  outline: none;
+}
+
+.teacher-header-search::placeholder {
+  color: var(--text-muted);
+}
+
+.teacher-header-search:focus {
+  border-color: color-mix(in srgb, var(--brand) 55%, var(--line-soft));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--glow) 38%, transparent);
+}
+
+.teacher-header-select {
+  min-width: 124px;
+  padding: 0.58rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--line-soft);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  outline: none;
+}
+
+.teacher-header-select:focus {
+  border-color: color-mix(in srgb, var(--brand) 55%, var(--line-soft));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--glow) 38%, transparent);
+}
+
+.teacher-chip-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.teacher-chip {
+  border: 1px solid var(--line-soft);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  border-radius: 999px;
+  padding: 0.38rem 0.72rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.teacher-chip--active {
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--line-soft));
+  background: var(--brand-soft);
+}
+
+.teacher-reports-filter-panel {
+  margin-bottom: 0.9rem;
+  padding: 0.95rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: var(--bg-surface);
+  display: grid;
+  gap: 0.9rem;
+}
+
+.teacher-reports-filter-row {
+  display: grid;
+  gap: 0.9rem 1.1rem;
+}
+
+.teacher-reports-filter-row--top {
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
+
+.teacher-reports-filter-row--bottom {
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+.teacher-reports-filter-group {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.teacher-reports-filter-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 960px) {
+  .teacher-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .teacher-header-search {
+    width: 100%;
+  }
+
+  .teacher-header-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .teacher-chip-group {
+    width: 100%;
+  }
+
+  .teacher-reports-filter-panel {
+    width: 100%;
+  }
+
+  .teacher-reports-filter-row--top,
+  .teacher-reports-filter-row--bottom {
+    grid-template-columns: 1fr;
+  }
+}
+
 [data-theme='dark'] .theme-switch {
   background: var(--bg-surface-2);
 }

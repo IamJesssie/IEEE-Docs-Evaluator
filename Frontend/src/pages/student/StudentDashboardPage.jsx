@@ -18,7 +18,7 @@ function StudentDashboardPage({ studentData }) {
       <main className="layout__main">
         <PanelHeader
           title="My Team Evaluations"
-          subtitle="View AI analysis feedback sent by your professor."
+          subtitle="View feedback sent by your professor."
         />
 
         <div className="card">

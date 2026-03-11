@@ -8,7 +8,7 @@ import {
   saveSetting,
   sendEvaluation,
 } from '../services/dashboardService';
-import { sortSubmissions } from '../utils/dashboardUtils';
+import { buildFilterOptions, extractSubmissionMeta, filterSubmissions, sortSubmissions } from '../utils/dashboardUtils';
 
 export function useTeacherDashboard(showToast) {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -17,6 +17,11 @@ export function useTeacherDashboard(showToast) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
+  const [selectedStudent, setSelectedStudent] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
+  const [selectedTeamCode, setSelectedTeamCode] = useState('');
+  const [selectedDocType, setSelectedDocType] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [isAnalyzeOpen, setIsAnalyzeOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -28,6 +33,12 @@ export function useTeacherDashboard(showToast) {
   const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
   const [isEditingReport, setIsEditingReport] = useState(false);
   const [editedReportText, setEditedReportText] = useState('');
+  const [reportSearchQuery, setReportSearchQuery] = useState('');
+  const [reportStatusFilter, setReportStatusFilter] = useState('');
+  const [reportDocTypeFilter, setReportDocTypeFilter] = useState('');
+  const [reportSelectedStudent, setReportSelectedStudent] = useState('');
+  const [reportSelectedSection, setReportSelectedSection] = useState('');
+  const [reportSelectedTeamCode, setReportSelectedTeamCode] = useState('');
 
   const [settings, setSettings] = useState([]);
   const [editedSettings, setEditedSettings] = useState({});
@@ -80,7 +91,95 @@ export function useTeacherDashboard(showToast) {
     if (currentView === 'settings') loadSettings();
   }, [currentView]);
 
-  const sortedFiles = useMemo(() => sortSubmissions(files, sortConfig), [files, sortConfig]);
+  const filterOptions = useMemo(() => buildFilterOptions(files), [files]);
+
+  const filteredFiles = useMemo(
+    () =>
+      filterSubmissions(files, {
+        selectedStudent,
+        selectedSection,
+        selectedTeamCode,
+        selectedDocType,
+        searchQuery,
+      }),
+    [files, selectedStudent, selectedSection, selectedTeamCode, selectedDocType, searchQuery],
+  );
+
+  const sortedFiles = useMemo(() => sortSubmissions(filteredFiles, sortConfig), [filteredFiles, sortConfig]);
+
+  const reportDocTypeOptions = useMemo(
+    () =>
+      [...new Set(historyLogs.map((item) => extractSubmissionMeta(item.fileName).documentType).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b)),
+    [historyLogs],
+  );
+
+  const reportFilterOptions = useMemo(() => {
+    const students = new Set();
+    const sections = new Set();
+    const teamCodes = new Set();
+
+    historyLogs.forEach((item) => {
+      const meta = extractSubmissionMeta(item.fileName);
+      if (meta.studentName) students.add(meta.studentName);
+      if (meta.section) sections.add(meta.section);
+      if (meta.teamCode) teamCodes.add(meta.teamCode);
+    });
+
+    return {
+      students: [...students].sort((a, b) => a.localeCompare(b)),
+      sections: [...sections].sort((a, b) => a.localeCompare(b)),
+      teamCodes: [...teamCodes].sort((a, b) => a.localeCompare(b)),
+    };
+  }, [historyLogs]);
+
+  const filteredHistoryLogs = useMemo(() => {
+    const query = reportSearchQuery.trim().toLowerCase();
+
+    return historyLogs.filter((log) => {
+      const docType = extractSubmissionMeta(log.fileName).documentType;
+      const meta = extractSubmissionMeta(log.fileName);
+
+      if (reportStatusFilter === 'sent' && !log.isSent) return false;
+      if (reportStatusFilter === 'pending' && log.isSent) return false;
+      if (reportDocTypeFilter && docType !== reportDocTypeFilter) return false;
+      if (reportSelectedStudent && meta.studentName !== reportSelectedStudent) return false;
+      if (reportSelectedSection && meta.section !== reportSelectedSection) return false;
+      if (reportSelectedTeamCode && meta.teamCode !== reportSelectedTeamCode) return false;
+
+      if (query) {
+        const searchable = [
+          log.fileName,
+          log.isSent ? 'sent' : 'pending',
+          log.evaluatedAt,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+
+        if (!searchable.includes(query)) return false;
+      }
+
+      return true;
+    });
+  }, [
+    historyLogs,
+    reportSearchQuery,
+    reportStatusFilter,
+    reportDocTypeFilter,
+    reportSelectedStudent,
+    reportSelectedSection,
+    reportSelectedTeamCode,
+  ]);
+
+  function clearReportFilters() {
+    setReportSelectedStudent('');
+    setReportSelectedSection('');
+    setReportSelectedTeamCode('');
+    setReportStatusFilter('');
+    setReportDocTypeFilter('');
+    setReportSearchQuery('');
+  }
 
   async function handleManualSync() {
     if (loading || isSyncing) return;
@@ -100,6 +199,14 @@ export function useTeacherDashboard(showToast) {
   function requestSort(key) {
     const direction = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
     setSortConfig({ key, direction });
+  }
+
+  function clearFilters() {
+    setSelectedStudent('');
+    setSelectedSection('');
+    setSelectedTeamCode('');
+    setSelectedDocType('');
+    setSearchQuery('');
   }
 
   function openAnalyzeModal(file) {
@@ -184,10 +291,25 @@ export function useTeacherDashboard(showToast) {
     currentView,
     setCurrentView,
     files: sortedFiles,
+    filterOptions,
+    selectedStudent,
+    selectedSection,
+    selectedTeamCode,
+    selectedDocType,
+    searchQuery,
     loading,
     isSyncing,
     error,
-    historyLogs,
+    historyLogs: filteredHistoryLogs,
+    allHistoryCount: historyLogs.length,
+    reportDocTypeOptions,
+    reportFilterOptions,
+    reportSearchQuery,
+    reportStatusFilter,
+    reportDocTypeFilter,
+    reportSelectedStudent,
+    reportSelectedSection,
+    reportSelectedTeamCode,
     loadingHistory,
     settings,
     loadingSettings,
@@ -206,6 +328,19 @@ export function useTeacherDashboard(showToast) {
     setEditedReportText,
     handleManualSync,
     requestSort,
+    setSelectedStudent,
+    setSelectedSection,
+    setSelectedTeamCode,
+    setSelectedDocType,
+    setSearchQuery,
+    setReportSearchQuery,
+    setReportStatusFilter,
+    setReportDocTypeFilter,
+    setReportSelectedStudent,
+    setReportSelectedSection,
+    setReportSelectedTeamCode,
+    clearReportFilters,
+    clearFilters,
     openAnalyzeModal,
     runAnalysis,
     loadHistory,

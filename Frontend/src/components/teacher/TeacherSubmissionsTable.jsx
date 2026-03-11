@@ -3,7 +3,7 @@ import { getDisplayType } from '../../utils/dashboardUtils';
 function TeacherSubmissionsTable({ files, loading, isSyncing, onSort, onAnalyze }) {
   return (
     <div className="card">
-      <table className="app-table">
+      <table className="app-table" id="teacher-submission-table">
         <thead>
           <tr>
             <th onClick={() => onSort('name')}>Submission Identity</th>
@@ -19,7 +19,7 @@ function TeacherSubmissionsTable({ files, loading, isSyncing, onSort, onAnalyze 
             </tr>
           ) : files.length === 0 ? (
             <tr>
-              <td colSpan="4" className="muted">No submissions found in the tracker.</td>
+              <td colSpan="4" className="muted">No submissions match the selected filters.</td>
             </tr>
           ) : (
             files.map((file, index) => (

@@ -1,11 +1,8 @@
 import { formatDateTime } from '../../utils/dashboardUtils';
 
-function TeacherHistoryTable({ logs, loading, onView, onRefresh }) {
+function TeacherHistoryTable({ logs, allCount = 0, loading, onView }) {
   return (
     <div className="card">
-      <div className="card__action-row">
-        <button className="btn btn--primary" onClick={onRefresh}>Refresh History</button>
-      </div>
       <table className="app-table">
         <thead>
           <tr>
@@ -23,7 +20,9 @@ function TeacherHistoryTable({ logs, loading, onView, onRefresh }) {
             </tr>
           ) : logs.length === 0 ? (
             <tr>
-              <td colSpan="5" className="muted">No evaluations saved.</td>
+              <td colSpan="5" className="muted">
+                {allCount === 0 ? 'No evaluations saved.' : 'No reports match the current search/filter.'}
+              </td>
             </tr>
           ) : (
             logs.map((log) => (
