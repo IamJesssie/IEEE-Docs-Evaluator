@@ -11,7 +11,7 @@ import {
 import { buildFilterOptions, extractSubmissionMeta, filterSubmissions, sortSubmissions } from '../utils/dashboardUtils';
 
 export function useTeacherDashboard(showToast) {
-  const [currentView, setCurrentView] = useState('dashboard');
+  const [currentView, setCurrentView] = useState('submissions'); // change to 'dashboard' later if dashboard page has been created
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -234,6 +234,7 @@ export function useTeacherDashboard(showToast) {
     setSelectedHistoryItem(item);
     setEditedReportText(item.evaluationResult);
     setIsEditingReport(false);
+    console.log(item);
   }
 
   async function saveEditedHistory() {

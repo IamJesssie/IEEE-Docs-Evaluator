@@ -30,7 +30,7 @@ function TeacherDashboardPage() {
       <main className="layout__main">
         {vm.error && <div className="error-box">{vm.error}</div>}
 
-        {vm.currentView === 'dashboard' && (
+        {vm.currentView === 'submissions' && (
           <>
             <PanelHeader
               title="Live Submissions"
