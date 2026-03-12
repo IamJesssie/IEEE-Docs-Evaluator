@@ -1,7 +1,7 @@
 import { signOut } from '../../services/authService';
 
 const NAV_ITEMS = [
-  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'submissions', label: 'Student Submissions' },
   { key: 'reports', label: 'AI Reports' },
   { key: 'settings', label: 'System Settings' },
 ];
