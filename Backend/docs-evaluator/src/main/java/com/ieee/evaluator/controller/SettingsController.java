@@ -11,7 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/settings")
-@CrossOrigin(origins = "http://localhost:5173") // Crucial for React!
 public class SettingsController {
 
     private final SystemSettingRepository repository;

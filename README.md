@@ -53,7 +53,7 @@ IEEE-Docs-Evaluator/
 ### Prerequisites
 
 - Node.js (v18+) and npm
-- Java 17+
+- Java 21+
 - Maven
 - A Google Cloud project with the following APIs enabled:
   - Google OAuth 2.0
@@ -79,6 +79,8 @@ VITE_API_BASE_URL=http://localhost:8080
 VITE_GOOGLE_CLIENT_ID=your_google_client_id
 ```
 
+For deployment, start from `Frontend/.env.example`.
+
 ---
 
 ### Backend Setup
@@ -86,6 +88,73 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id
 ```bash
 cd Backend/docs-evaluator
 mvn spring-boot:run
+```
+
+For deployment, start from `Backend/docs-evaluator/.env.render.example` and map each key into Render environment variables.
+
+---
+
+## ☁️ Deployment (Render + Vercel)
+
+### Backend → Render
+
+1. Create a Render Web Service from this repository.
+2. Use the backend root directory: `Backend/docs-evaluator`.
+3. Build command:
+
+```bash
+./mvnw clean package -DskipTests
+```
+
+4. Start command:
+
+```bash
+java -jar target/docs-evaluator-0.0.1-SNAPSHOT.jar
+```
+
+5. Configure these environment variables in Render:
+  - `SPRING_DATASOURCE_URL`
+  - `SPRING_DATASOURCE_USERNAME`
+  - `SPRING_DATASOURCE_PASSWORD`
+  - `CORS_ALLOWED_ORIGINS` (include your Vercel URL, optionally localhost)
+  - `GOOGLE_SHEET_ID`
+  - `GOOGLE_SERVICE_ACCOUNT_JSON` **or** `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`
+  - `OPENROUTER_HTTP_REFERER` (recommended: your frontend URL)
+  - `OPENROUTER_APP_TITLE`
+
+The backend now uses non-interactive service-account credentials for Google APIs (Render-safe) and centralized CORS via `CORS_ALLOWED_ORIGINS`.
+
+### Frontend → Vercel
+
+1. Import the same repository in Vercel.
+2. Set project root directory to `Frontend`.
+3. Vercel build settings:
+  - Install command: `npm ci`
+  - Build command: `npm run build`
+  - Output directory: `dist`
+4. Configure these environment variables in Vercel:
+  - `VITE_API_BASE_URL` (e.g. `https://<render-service>.onrender.com/api`)
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_ANON_KEY`
+  - `VITE_GOOGLE_CLIENT_ID`
+
+### Local verification before deploy
+
+Frontend:
+
+```bash
+cd Frontend
+npm ci
+npm run lint
+npm run build
+```
+
+Backend:
+
+```bash
+cd Backend/docs-evaluator
+./mvnw test
+./mvnw clean package
 ```
 
 ---
