@@ -11,46 +11,59 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
-public class AiService {
-
+public class AiService 
+{
     private final GoogleDocsService docsService;
     private final EvaluationHistoryRepository historyRepository;
     private final Map<String, AiProvider> providers;
 
-    public AiService(GoogleDocsService docsService, 
-                     EvaluationHistoryRepository historyRepository, 
-                     List<AiProvider> providerList) {
+    public AiService
+    (
+        GoogleDocsService docsService,
+        EvaluationHistoryRepository historyRepository,
+        List<AiProvider> providerList
+    )
+    {
         this.docsService = docsService;
         this.historyRepository = historyRepository;
-        
-        // This automatically builds a map of {"openai": OpenAiService, "openrouter": OpenRouterService}
         this.providers = providerList.stream()
                 .collect(Collectors.toMap(p -> p.getProviderName().toLowerCase(), Function.identity()));
     }
 
-    public String analyzeDocument(String fileId, String fileName, String aiModel) throws Exception {
-        
-        // 1. Directly export the Google Doc as pure text string
-        String extractedText = docsService.exportDocAsText(fileId);
-
-        if (extractedText == null || extractedText.trim().isEmpty()) {
-            return "ERROR: No readable text found in this document. Please ensure the Google Doc contains text.";
-        }
-
-        // 2. Dynamically fetch the correct AI provider
+    public String analyzeDocument(String fileId, String fileName, String aiModel) throws Exception 
+    {
         AiProvider provider = providers.get(aiModel.toLowerCase());
-        
+        String result;
+
         // Quick fallback just in case the frontend still sends "GPT" instead of "openrouter"
-        if (provider == null && "gpt".equalsIgnoreCase(aiModel)) {
+        if (provider == null && "gpt".equalsIgnoreCase(aiModel)) 
+        {
             provider = providers.get("openrouter");
         }
 
-        if (provider == null) {
+        if (provider == null) 
+        {
             return "ERROR: Model provider '" + aiModel + "' is not supported.";
         }
 
-        String result = provider.analyze(extractedText);
-        
+        // Uses image-aware AI model (Gemini 3.1 Flash Lite) and fetches PDF bytes instead of extracting text
+        if (provider instanceof DriveAwareAiProvider driveAwareAiProvider) 
+        {
+            result = driveAwareAiProvider.analyzeFromDrive(fileId, fileName);
+        } 
+        // Uses text only extraction models
+        else 
+        {
+            String extractedText = docsService.exportDocAsText(fileId);
+
+            if (extractedText == null || extractedText.trim().isEmpty()) 
+            {
+                return "ERROR: No readable text found in this document. Please ensure the document contains text.";
+            }
+
+            result = provider.analyze(extractedText);
+        }
+
         EvaluationHistory history = new EvaluationHistory();
         history.setFileId(fileId);
         history.setFileName(fileName);
