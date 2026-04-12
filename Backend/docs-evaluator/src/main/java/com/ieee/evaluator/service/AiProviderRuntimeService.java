@@ -24,8 +24,6 @@ import java.util.Set;
 public class AiProviderRuntimeService {
 
     private static final String OPENAI_MODELS_URL = "https://api.openai.com/v1/models";
-    private static final String GEMINI_MODELS_URL_TEMPLATE =
-        "https://generativelanguage.googleapis.com/v1beta/models?key=%s";
 
     private final SystemSettingService settings;
     private final RestTemplate restTemplate;
@@ -39,10 +37,7 @@ public class AiProviderRuntimeService {
     public AiRuntimeResponse getAiRuntime() {
         String activeProvider = normalizeProvider(settings.getValueOrNull(SystemSettingService.ACTIVE_AI_PROVIDER));
         String openAiModel = trimOrEmpty(settings.getValueOrNull(SystemSettingService.OPENAI_MODEL));
-        String geminiModel = trimOrEmpty(settings.getValueOrNull(SystemSettingService.GEMINI_MODEL));
-
         String openAiKey = trimOrEmpty(settings.getValueOrNull(SystemSettingService.OPENAI_API_KEY));
-        String geminiKey = trimOrEmpty(settings.getValueOrNull(SystemSettingService.GEMINI_API_KEY));
 
         ProviderRuntimeOption openAi = new ProviderRuntimeOption(
             "openai",
@@ -52,15 +47,7 @@ public class AiProviderRuntimeService {
             fetchOpenAiModels(openAiKey, openAiModel)
         );
 
-        ProviderRuntimeOption gemini = new ProviderRuntimeOption(
-            "gemini",
-            "Gemini",
-            !geminiKey.isBlank(),
-            geminiModel,
-            fetchGeminiModels(geminiKey, geminiModel)
-        );
-
-        return new AiRuntimeResponse(activeProvider, List.of(openAi, gemini));
+        return new AiRuntimeResponse(activeProvider, List.of(openAi));
     }
 
     private List<String> fetchOpenAiModels(String apiKey, String selectedModel) {
@@ -102,57 +89,6 @@ public class AiProviderRuntimeService {
         }
 
         return sorted(options);
-    }
-
-    private List<String> fetchGeminiModels(String apiKey, String selectedModel) {
-        Set<String> options = new HashSet<>();
-        if (!selectedModel.isBlank()) {
-            options.add(selectedModel);
-        }
-
-        if (apiKey.isBlank() || apiKey.startsWith("sk-")) {
-            return sorted(options);
-        }
-
-        try {
-            String url = String.format(Locale.ROOT, GEMINI_MODELS_URL_TEMPLATE, apiKey);
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
-
-            JsonNode root = objectMapper.readTree(response.getBody());
-            JsonNode models = root.path("models");
-
-            if (models.isArray()) {
-                for (JsonNode modelNode : models) {
-                    if (!supportsGenerateContent(modelNode.path("supportedGenerationMethods"))) {
-                        continue;
-                    }
-
-                    String rawName = trimOrEmpty(modelNode.path("name").asText());
-                    if (!rawName.isBlank()) {
-                        options.add(rawName.replace("models/", ""));
-                    }
-                }
-            }
-        } catch (HttpClientErrorException e) {
-            log.warn("Unable to fetch Gemini model list dynamically: HTTP {}", e.getStatusCode().value());
-        } catch (Exception e) {
-            log.warn("Unable to fetch Gemini model list dynamically: {}", sanitizeLogMessage(e.getMessage()));
-        }
-
-        return sorted(options);
-    }
-
-    private boolean supportsGenerateContent(JsonNode methodsNode) {
-        if (!methodsNode.isArray()) {
-            return false;
-        }
-
-        for (JsonNode methodNode : methodsNode) {
-            if ("generateContent".equalsIgnoreCase(trimOrEmpty(methodNode.asText()))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private List<String> sorted(Set<String> values) {

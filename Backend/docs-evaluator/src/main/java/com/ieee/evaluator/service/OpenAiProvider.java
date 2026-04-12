@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -32,16 +34,20 @@ public class OpenAiProvider implements AiProvider {
 
     // ── Endpoint ──────────────────────────────────────────────────────────────
     private static final String API_URL = "https://api.openai.com/v1/chat/completions";
+    private static final String DEFAULT_MODEL = "gpt-4o-mini";
 
     private final SystemSettingService settingsService;
     private final RestTemplate         restTemplate;
+    private final DocumentReviewPromptFactory promptFactory;
     private final ObjectMapper         objectMapper = new ObjectMapper();
 
     public OpenAiProvider(
         SystemSettingService settingsService,
+        DocumentReviewPromptFactory promptFactory,
         @Qualifier("aiRestTemplate") RestTemplate restTemplate
     ) {
         this.settingsService = settingsService;
+        this.promptFactory = promptFactory;
         this.restTemplate = restTemplate;
     }
 
@@ -54,6 +60,11 @@ public class OpenAiProvider implements AiProvider {
 
     @Override
     public String analyze(String text) {
+        return analyze(text, List.of());
+    }
+
+    @Override
+    public String analyze(String text, List<String> base64Images) {
         // Read config fresh on every call — enables zero-restart updates.
         String apiKey = settingsService.getValueOrNull(KEY_API_KEY);
         String model  = settingsService.getValueOrNull(KEY_MODEL);
@@ -63,12 +74,11 @@ public class OpenAiProvider implements AiProvider {
                    "Please add OPENAI_API_KEY in System Settings.";
         }
         if (isBlank(model)) {
-            return "EVALUATION ERROR: OpenAI model is not configured. " +
-                "Please set OPENAI_MODEL in System Settings.";
+            model = DEFAULT_MODEL;
         }
 
         try {
-            return callOpenAi(apiKey.trim(), model.trim(), text);
+            return callOpenAi(apiKey.trim(), model.trim(), text, base64Images);
         } catch (HttpClientErrorException e) {
             return handleHttpError(e, "OpenAI");
         } catch (Exception e) {
@@ -79,18 +89,39 @@ public class OpenAiProvider implements AiProvider {
 
     // ── Internal helpers ──────────────────────────────────────────────────────
 
-    private String callOpenAi(String apiKey, String model, String documentText) throws com.fasterxml.jackson.core.JsonProcessingException {
-        String truncated = truncate(documentText, 8_000);
-        String prompt    = buildPrompt(truncated);
+    private String callOpenAi(String apiKey, String model, String documentText, List<String> base64Images)
+            throws com.fasterxml.jackson.core.JsonProcessingException {
+        String prompt = promptFactory.buildPrompt(documentText);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(apiKey);
 
-        Map<String, Object> body = Map.of(
-            "model",    model,
-            "messages", List.of(Map.of("role", "user", "content", prompt))
-        );
+        List<Map<String, Object>> contentParts = new ArrayList<>();
+        contentParts.add(Map.of("type", "text", "text", prompt));
+
+        if (base64Images != null) {
+            int imageIndex = 1;
+            for (String image : base64Images) {
+                if (isBlank(image)) {
+                    continue;
+                }
+
+                contentParts.add(Map.of(
+                    "type", "text",
+                    "text", "[IMG-" + imageIndex + "] Rendered PDF page " + imageIndex
+                ));
+
+                Map<String, Object> imageUrl = new HashMap<>();
+                imageUrl.put("url", "data:image/png;base64," + image);
+                contentParts.add(Map.of("type", "image_url", "image_url", imageUrl));
+                imageIndex++;
+            }
+        }
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("model", model);
+        body.put("messages", List.of(Map.of("role", "user", "content", contentParts)));
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
         ResponseEntity<String> response = restTemplate.postForEntity(API_URL, request, String.class);
@@ -115,86 +146,7 @@ public class OpenAiProvider implements AiProvider {
         return "EVALUATION ERROR: " + reason;
     }
 
-    private static String truncate(String text, int maxChars) {
-        return (text != null && text.length() > maxChars)
-               ? text.substring(0, maxChars) + "...[truncated]"
-               : text;
-    }
-
     private static boolean isBlank(String s) {
         return s == null || s.isBlank();
-    }
-
-    // ── Prompt ────────────────────────────────────────────────────────────────
-
-    private static String buildPrompt(String documentContent) {
-        return """
-            You are an expert evaluator of software engineering documents following IEEE standards.
-
-            STEP 1 — Identify the document type:
-            * SRS (IEEE 830 Software Requirements Specification)
-            * SDD (IEEE 1016 Software Design Description)
-            * SPMP (IEEE 1058 Software Project Management Plan)
-            * STD (IEEE 829 Software Test Documentation)
-
-            If the document is empty, unreadable, or not a software engineering document, reply exactly:
-            ERROR: Invalid Software Engineering document.
-
-            STEP 1.5 — Always check and extract these document details before evaluation:
-            * Is the Document Empty?
-            * Document Type
-            * Document Title
-            * Name of Members
-            * Chapter Breakdown (per section heading)
-
-            STEP 2 — Evaluate using the correct rubric:
-            For SRS: Introduction & Scope | Overall Description | Functional Requirements | Non-Functional Requirements | External Interfaces
-            For SDD: System Architecture | Data Design | Component Design | Interface Design | Design Decisions
-            For SPMP: Project Scope & Objectives | Scheduling & Timeline | Resource Allocation | Risk Management | Monitoring & Control
-            For STD: Test Plan | Test Cases | Test Procedures | Test Coverage | Traceability to Requirements
-
-            STEP 3 — Score each criterion 1–5 (1=Poor/Missing, 5=Excellent).
-
-            STEP 4 — Output EXACTLY in this format:
-
-            Is the Document Empty?: <Yes/No>
-            Document Title: <title or Not specified>
-            Name of Members: <names or Not specified>
-            Chapter Breakdown:
-            * <Chapter/Section 1>
-            * <etc.>
-
-            Document Type: <Detected Type>
-            Overall Score: X/25
-
-            Summary:
-            * (2–3 bullet points)
-
-            Rubric Evaluation:
-            * <Criterion 1>: X/5 — (short justification)
-            * <Criterion 2>: X/5 — (short justification)
-            * <Criterion 3>: X/5 — (short justification)
-            * <Criterion 4>: X/5 — (short justification)
-            * <Criterion 5>: X/5 — (short justification)
-
-            Strengths:
-            * (2–3 bullet points)
-
-            Weaknesses:
-            * (2–3 bullet points)
-
-            Missing or Incomplete Sections:
-            * (list specific missing parts, if any)
-
-            Recommendations:
-            * (2–3 actionable improvements)
-
-            Conclusion:
-            * (overall quality judgment)
-
-            IMPORTANT: Be strict and realistic. Do NOT inflate scores. Do not hallucinate sections.
-
-            DOCUMENT:
-            """ + documentContent;
     }
 }

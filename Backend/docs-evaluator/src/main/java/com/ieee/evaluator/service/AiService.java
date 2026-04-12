@@ -175,13 +175,14 @@ public class AiService {
 
         // Text-extraction path: export doc as plain text then call AI.
         String extractedText = docsService.exportDocAsText(fileId);
+        List<String> extractedImages = docsService.extractPdfImagesIfPdf(fileId);
 
         if (extractedText == null || extractedText.isBlank()) {
             return "EVALUATION ERROR: No readable text found in this document. " +
                    "Please ensure the document contains text content.";
         }
 
-        return provider.analyze(extractedText);
+        return provider.analyze(extractedText, extractedImages);
     }
 
     // ── Provider resolution ───────────────────────────────────────────────────

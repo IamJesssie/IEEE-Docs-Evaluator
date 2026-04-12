@@ -4,6 +4,7 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.ByteArrayContent;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
@@ -12,8 +13,10 @@ import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Service
+@Slf4j
 public class GoogleDocsService 
 {
     private static final String GOOGLE_DOC_MIME = "application/vnd.google-apps.document";
@@ -22,10 +25,36 @@ public class GoogleDocsService
     private static final String PLAIN_TEXT_MIME = "text/plain";
 
     private final Drive driveService;
+    private final PdfImageExtractor pdfImageExtractor;
 
-    public GoogleDocsService(Drive driveService) 
+    public GoogleDocsService(Drive driveService, PdfImageExtractor pdfImageExtractor) 
     {
         this.driveService = driveService;
+        this.pdfImageExtractor = pdfImageExtractor;
+    }
+
+    public List<String> extractPdfImagesIfPdf(String fileId)
+    {
+        try
+        {
+            File fileInfo = driveService.files()
+                    .get(fileId)
+                    .setFields("id,name,mimeType")
+                    .execute();
+
+            if (!PDF_MIME.equals(fileInfo.getMimeType()))
+            {
+                return List.of();
+            }
+
+            byte[] pdfBytes = downloadBlobBytes(fileId);
+            return pdfImageExtractor.extractFirstPagesAsBase64Pngs(pdfBytes, 10);
+        }
+        catch (Exception e)
+        {
+            log.warn("Failed to extract PDF images for fileId={}: {}", fileId, e.getMessage());
+            return List.of();
+        }
     }
 
     public String exportDocAsText(String fileId) throws Exception 

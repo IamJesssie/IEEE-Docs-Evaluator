@@ -60,6 +60,11 @@ public class GeminiProvider implements AiProvider {
 
     @Override
     public String analyze(String text) {
+        return analyze(text, List.of());
+    }
+
+    @Override
+    public String analyze(String text, List<String> base64Images) {
         // Read config fresh on every call.
         String apiKey = settingsService.getValueOrNull(KEY_API_KEY);
         String model  = settingsService.getValueOrNull(KEY_MODEL);
@@ -74,14 +79,14 @@ public class GeminiProvider implements AiProvider {
         }
 
         try {
-            return callGemini(apiKey.trim(), model.trim(), text);
+            return callGemini(apiKey.trim(), model.trim(), text, base64Images);
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode().value() == 404) {
                 String fallbackModel = findFirstSupportedGeminiModel(apiKey.trim());
                 if (!isBlank(fallbackModel) && !fallbackModel.equalsIgnoreCase(model.trim())) {
                     log.warn("GEMINI_MODEL '{}' not found; retrying with discovered model '{}'", model.trim(), fallbackModel);
                     try {
-                        return callGemini(apiKey.trim(), fallbackModel, text);
+                        return callGemini(apiKey.trim(), fallbackModel, text, base64Images);
                     } catch (Exception retryException) {
                         log.error("Gemini retry with fallback model failed: {}", retryException.getMessage(), retryException);
                     }
@@ -96,7 +101,8 @@ public class GeminiProvider implements AiProvider {
 
     // ── Internal helpers ──────────────────────────────────────────────────────
 
-    private String callGemini(String apiKey, String model, String documentText) throws com.fasterxml.jackson.core.JsonProcessingException {
+    private String callGemini(String apiKey, String model, String documentText, List<String> base64Images)
+            throws com.fasterxml.jackson.core.JsonProcessingException {
         String truncated = truncate(documentText, 8_000);
         String prompt    = buildPrompt(truncated);
         String url       = String.format(API_URL_TEMPLATE, model, apiKey);
@@ -104,9 +110,20 @@ public class GeminiProvider implements AiProvider {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
+        List<Map<String, Object>> parts = new ArrayList<>();
+        parts.add(Map.of("text", prompt));
+        if (base64Images != null) {
+            for (String image : base64Images) {
+                if (isBlank(image)) {
+                    continue;
+                }
+                parts.add(Map.of("inlineData", Map.of("mimeType", "image/png", "data", image)));
+            }
+        }
+
         Map<String, Object> requestBody = Map.of(
             "contents", List.of(
-                Map.of("parts", List.of(Map.of("text", prompt)))
+                Map.of("parts", parts)
             ),
             "generationConfig", Map.of("temperature", 0.3)
         );
