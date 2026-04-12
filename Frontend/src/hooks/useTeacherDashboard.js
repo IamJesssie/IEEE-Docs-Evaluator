@@ -42,6 +42,11 @@ export function useTeacherDashboard(showToast) {
   const [reportSelectedSection, setReportSelectedSection] = useState('');
   const [reportSelectedTeamCode, setReportSelectedTeamCode] = useState('');
 
+  const [deletedReportIds, setDeletedReportIds] = useState(() => {
+    const saved = localStorage.getItem('deletedTeacherReportIds');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [settings, setSettings] = useState([]);
   const [editedSettings, setEditedSettings] = useState({});
   const [loadingSettings, setLoadingSettings] = useState(false);
@@ -227,34 +232,37 @@ export function useTeacherDashboard(showToast) {
   const filteredHistoryLogs = useMemo(() => {
     const query = reportSearchQuery.trim().toLowerCase();
 
-    return historyLogs.filter((log) => {
-      const docType = extractSubmissionMeta(log.fileName).documentType;
-      const meta = extractSubmissionMeta(log.fileName);
+    return historyLogs
+      .filter((log) => !deletedReportIds.includes(log.id))
+      .filter((log) => {
+        const docType = extractSubmissionMeta(log.fileName).documentType;
+        const meta = extractSubmissionMeta(log.fileName);
 
-      if (reportStatusFilter === 'sent' && !log.isSent) return false;
-      if (reportStatusFilter === 'pending' && log.isSent) return false;
-      if (reportDocTypeFilter && docType !== reportDocTypeFilter) return false;
-      if (reportSelectedStudent && meta.studentName !== reportSelectedStudent) return false;
-      if (reportSelectedSection && meta.section !== normalizeSection(reportSelectedSection)) return false;
-      if (reportSelectedTeamCode && meta.teamCode !== reportSelectedTeamCode.toUpperCase()) return false;
+        if (reportStatusFilter === 'sent' && !log.isSent) return false;
+        if (reportStatusFilter === 'pending' && log.isSent) return false;
+        if (reportDocTypeFilter && docType !== reportDocTypeFilter) return false;
+        if (reportSelectedStudent && meta.studentName !== reportSelectedStudent) return false;
+        if (reportSelectedSection && meta.section !== normalizeSection(reportSelectedSection)) return false;
+        if (reportSelectedTeamCode && meta.teamCode !== reportSelectedTeamCode.toUpperCase()) return false;
 
-      if (query) {
-        const searchable = [
-          log.fileName,
-          log.isSent ? 'sent' : 'pending',
-          log.evaluatedAt,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
+        if (query) {
+          const searchable = [
+            log.fileName,
+            log.isSent ? 'sent' : 'pending',
+            log.evaluatedAt,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
 
-        if (!searchable.includes(query)) return false;
-      }
+          if (!searchable.includes(query)) return false;
+        }
 
-      return true;
-    });
+        return true;
+      });
   }, [
     historyLogs,
+    deletedReportIds,
     reportSearchQuery,
     reportStatusFilter,
     reportDocTypeFilter,
@@ -263,6 +271,8 @@ export function useTeacherDashboard(showToast) {
     reportSelectedTeamCode,
   ]);
 
+  const allHistoryCount = historyLogs.filter((log) => !deletedReportIds.includes(log.id)).length;
+
   function clearReportFilters() {
     setReportSelectedStudent('');
     setReportSelectedSection('');
@@ -270,6 +280,13 @@ export function useTeacherDashboard(showToast) {
     setReportStatusFilter('');
     setReportDocTypeFilter('');
     setReportSearchQuery('');
+  }
+
+  function deleteReport(reportId) {
+    const updated = [...deletedReportIds, reportId];
+    setDeletedReportIds(updated);
+    localStorage.setItem('deletedTeacherReportIds', JSON.stringify(updated));
+    showToast('Report deleted from view.', 'success');
   }
 
   async function handleManualSync() {
@@ -427,7 +444,7 @@ export function useTeacherDashboard(showToast) {
     analyzedFileIds,
     error,
     historyLogs: filteredHistoryLogs,
-    allHistoryCount: historyLogs.length,
+    allHistoryCount,
     reportDocTypeOptions,
     reportFilterOptions,
     reportSearchQuery,
@@ -459,14 +476,6 @@ export function useTeacherDashboard(showToast) {
     setSelectedStudent,
     setSelectedSection,
     setSelectedTeamCode,
-    setSelectedDocType,
-    setSearchQuery,
-    setReportSearchQuery,
-    setReportStatusFilter,
-    setReportDocTypeFilter,
-    setReportSelectedStudent,
-    setReportSelectedSection,
-    setReportSelectedTeamCode,
     clearReportFilters,
     clearFilters,
     openAnalyzeModal,
@@ -479,5 +488,7 @@ export function useTeacherDashboard(showToast) {
     handleSettingChange,
     saveAllSettings,
     loadSettings,
+    deleteReport,
+    deletedReportIds,
   };
 }
