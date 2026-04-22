@@ -121,7 +121,7 @@ function TeacherDashboardPage() {
             />
             <TeacherSubmissionsTable
               files={vm.files}
-              loading={vm.loading}
+              loading={vm.loading || vm.loadingHistory}
               isSyncing={vm.isSyncing}
               analyzedFileIds={vm.analyzedFileIds}
               onSort={vm.requestSort}
@@ -238,6 +238,7 @@ function TeacherDashboardPage() {
 
       <TeacherHistoryModal
         item={vm.selectedHistoryItem}
+        images={vm.aiImages.length > 0 ? vm.aiImages : (vm.selectedHistoryItem?.extractedImages || [])}
         isEditing={vm.isEditingReport}
         editedText={vm.editedReportText}
         editedFeedback={vm.editedTeacherFeedback}

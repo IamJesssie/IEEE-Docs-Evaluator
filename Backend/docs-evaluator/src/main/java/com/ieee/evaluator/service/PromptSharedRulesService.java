@@ -19,12 +19,12 @@ public class PromptSharedRulesService {
 
                 Rules:
                   - IMPROVED  → The current document substantively resolves one or more prior weaknesses,
-                                 or adds significant new engineering depth not present before.
+                                  or adds significant new engineering depth not present before.
                   - WORSENED  → Previously adequate content was removed or logical quality degraded.
-                  - SAME      → Every weakness and missing section from the prior evaluation is still
-                                 present with no substantive new content. Do NOT claim "unchanged" —
-                                 you cannot verify this without the old document. Only assess resolved
-                                 vs. unresolved issues.
+                  - SAME       → Every weakness and missing section from the prior evaluation is still
+                                  present with no substantive new content. Do NOT claim "unchanged" —
+                                  you cannot verify this without the old document. Only assess resolved
+                                  vs. unresolved issues.
 
                 Do NOT invent changes you cannot verify from the current document text.
 
@@ -84,7 +84,7 @@ public class PromptSharedRulesService {
             SELF-CONSISTENCY RULE (mandatory):
             The numeric score you assign to each criterion MUST be directly derivable from
             your written justification. If your justification describes "mostly complete with
-            minor gaps," the score must be 4 — not 2 or 5. Contradictions between prose and
+            minor gaps," the score must be 16 — not 8 or 20. Contradictions between prose and
             score will be treated as evaluation errors.
 
             EVIDENCE RULE (mandatory):
@@ -100,7 +100,7 @@ public class PromptSharedRulesService {
               - Output exactly:
                   Is the Document Empty?: Yes
                   Document Type: UNDETERMINED
-                  Overall Score: 0/25
+                  Overall Score: 0/100
                   Summary: Document is empty or has insufficient content to evaluate.
               - STOP. Do not execute any further steps.
 
@@ -172,17 +172,18 @@ public class PromptSharedRulesService {
             Score each rubric criterion using the calibrated scale below.
             Apply the scale uniformly. Do not grade-inflate.
 
-            Calibrated Scoring Scale:
-              5 = Fully addressed with specific, measurable, and verifiable engineering details
-              4 = Mostly addressed; minor gaps in precision or completeness
-              3 = Partially addressed; present but too high-level or generic
-              2 = Mentioned superficially with no engineering substance
-              1 = Absent, incorrect, or contradicts other sections of the document
+            Calibrated Scoring Scale (per criterion):
+              20 = Professional Grade: Fully addressed with technical metrics, precise specifications, and zero ambiguity.
+              16 = High Quality: Comprehensive but missing minor technical edge cases or granular justifications.
+              12 = Satisfactory: Meets basic IEEE requirements but relies on high-level or generic descriptions.
+               8 = Developing: Superficial mention of the topic with no implementation details or technical depth.
+               4 = Critically Deficient: Section is absent, logically broken, or technically incorrect.
 
             For each criterion, your justification MUST:
-              (a) Reference a specific section, passage, OR DIAGRAM (Evidence rule above)
-              (b) Explain WHY that evidence maps to the assigned score tier. IF A DIAGRAM CONTAINS NOTATION ERRORS, YOU MUST LOWER THE SCORE FOR THAT SECTION.
-              (c) Match the numeric score to the tier described in your prose
+              (a) Reference a specific section, passage, OR DIAGRAM (Evidence rule above).
+              (b) Explain WHY that evidence maps to the assigned score tier. 
+              (c) MANDATORY PENALTY: If a diagram is required for a section and contains notation errors (e.g., incorrect UML arrows or missing multiplicities), you MUST deduct at least 4 points from that section.
+              (d) Match the numeric score to the tier described in your prose.
 
             ═══════════════════════════════════════════════════════════
             %s
@@ -198,7 +199,7 @@ public class PromptSharedRulesService {
 
             Document Type: <Detected Type>
             Classifier Override: <Yes / No — Reason>
-            Overall Score: X/25
+            Overall Score: X/100
 
             %s
 
@@ -212,9 +213,9 @@ public class PromptSharedRulesService {
             * (Sections that exist but lack engineering depth, precision, or logical consistency. YOU MUST INCLUDE SPECIFIC DIAGRAM/NOTATION ERRORS HERE IF ANY WERE FOUND IN STEP 2)
 
             Recommendations:
-            * [<Criterion Name>, <Score>/5] → (specific, granular, actionable fix)
-            * [<Criterion Name>, <Score>/5] → (specific, granular, actionable fix)
-            * [<Criterion Name>, <Score>/5] → (specific, granular, actionable fix)
+            * [<Criterion Name>, <Score>/20] → (specific, granular, actionable fix)
+            * [<Criterion Name>, <Score>/20] → (specific, granular, actionable fix)
+            * [<Criterion Name>, <Score>/20] → (specific, granular, actionable fix)
 
             Strengths:
             * (2–3 bullet points on what is technically sound and well-specified)
@@ -228,11 +229,11 @@ public class PromptSharedRulesService {
             * State explicitly whether the document is "Accepted", "Needs Minor Revisions", or "Requires Major Rework".
 
             Rubric Evaluation:
-            * <Criterion 1>: X/5 — (Evidence: "...") — <justification tied to score tier>
-            * <Criterion 2>: X/5 — (Evidence: "...") — <justification tied to score tier>
-            * <Criterion 3>: X/5 — (Evidence: "...") — <justification tied to score tier>
-            * <Criterion 4>: X/5 — (Evidence: "...") — <justification tied to score tier>
-            * <Criterion 5>: X/5 — (Evidence: "...") — <justification tied to score tier>
+            * <Criterion 1>: X/20 — (Evidence: "...") — <justification tied to score tier>
+            * <Criterion 2>: X/20 — (Evidence: "...") — <justification tied to score tier>
+            * <Criterion 3>: X/20 — (Evidence: "...") — <justification tied to score tier>
+            * <Criterion 4>: X/20 — (Evidence: "...") — <justification tied to score tier>
+            * <Criterion 5>: X/20 — (Evidence: "...") — <justification tied to score tier>
 
             ═══════════════════════════════════════════════════════════
             DOCUMENT TO EVALUATE:
