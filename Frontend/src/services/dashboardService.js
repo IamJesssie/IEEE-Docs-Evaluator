@@ -1,3 +1,5 @@
+import { API_BASE_URL } from '../api';
+
 import {
   analyzeDocumentWithAI,
   getClassRoster,
@@ -55,4 +57,15 @@ export async function sendEvaluation(id) {
 
 export async function fetchClassRoster() {
   return getClassRoster();
+}
+
+export async function fetchHistoryItem(id) {
+    // USE THE CONSTANT: This ensures it hits 8080, not 5173
+    const res = await fetch(`${API_BASE_URL}/ai/history/${id}`);
+    
+    if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Server Error: ${errorText}`);
+    }
+    return res.json();
 }

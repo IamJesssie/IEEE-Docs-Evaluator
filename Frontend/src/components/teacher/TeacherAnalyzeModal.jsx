@@ -103,7 +103,7 @@ function TeacherAnalyzeModal({
           <textarea
             id="custom-rules"
             className="custom-rules-textarea"
-            placeholder="e.g., Be extremely strict on the Database Schema. Ensure they mention Role-Based Access Control."
+            placeholder="e.g., Be extremely strict on the Diagrams. Ensure they have include and exclude."
             value={customRules}
             onChange={(e) => setCustomRules(e.target.value)}
             disabled={isAnalyzing}

@@ -38,7 +38,7 @@ public class EvaluationHistory {
     // FIX #2: Added FetchType.EAGER to prevent LazyInitializationException
     // when extractedImages is accessed outside of an active transaction
     // (e.g., during JSON serialization in the controller).
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "evaluation_images", joinColumns = @JoinColumn(name = "history_id"))
     @Column(name = "image_data", columnDefinition = "TEXT")
     private List<String> extractedImages;

@@ -4,6 +4,7 @@ import EvaluationReport from '../common/EvaluationReport';
 
 function TeacherHistoryModal({
   item,
+  images,
   isEditing,
   editedText,
   editedFeedback,
@@ -71,8 +72,9 @@ function TeacherHistoryModal({
         <div className="report-view-container" style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', overflowX: 'hidden', paddingRight: '8px' }}>
           
           <EvaluationReport 
-            text={item?.evaluationResult} 
-            images={item?.extractedImages || []} 
+            // Show editedText if it exists, otherwise fall back to the item
+            text={editedText || item?.evaluationResult} 
+            images={images || []} 
           />
           
           {hasFeedback && (

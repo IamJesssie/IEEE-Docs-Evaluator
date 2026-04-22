@@ -1,8 +1,12 @@
 package com.ieee.evaluator.controller;
 
+import com.ieee.evaluator.model.AnalysisResultDTO;
 import com.ieee.evaluator.model.EvaluationHistory;
 import com.ieee.evaluator.repository.EvaluationHistoryRepository;
 import com.ieee.evaluator.service.AiService;
+
+import org.springframework.transaction.annotation.Transactional;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,26 +26,24 @@ public class AiController {
     }
 
     /**
-     * Triggers document analysis. 
-     * Now returns a Map containing "analysis" (String) and "images" (List of Base64 Strings).
+     * Triggers document analysis.
+     * Returns an AnalysisResultDTO containing "analysis" (String) and "images" (List of Base64 Strings).
      */
     @PostMapping("/analyze")
     public ResponseEntity<?> analyzeFile(@RequestBody Map<String, String> payload) {
         try {
-            String fileId = payload.get("fileId") == null ? null : payload.get("fileId").trim();
-            String fileName = payload.get("fileName") == null ? null : payload.get("fileName").trim();
-            String model = payload.get("model") == null ? null : payload.get("model").trim();
+            String fileId             = payload.get("fileId")   == null ? null : payload.get("fileId").trim();
+            String fileName           = payload.get("fileName") == null ? null : payload.get("fileName").trim();
+            String model              = payload.get("model")    == null ? null : payload.get("model").trim();
             String customInstructions = payload.get("customInstructions");
-            
+
             if (fileId == null || fileId.isBlank() || model == null || model.isBlank() || fileName == null || fileName.isBlank()) {
                 return ResponseEntity.badRequest().body("Missing fileId, fileName, or model");
             }
-            
-            // This now returns a Map<String, Object> containing both text and images
-            Map<String, Object> result = aiService.analyzeDocument(fileId, fileName, model, customInstructions);
-            
-            // Returns the full payload to the frontend
+
+            AnalysisResultDTO result = aiService.analyzeDocument(fileId, fileName, model, customInstructions);
             return ResponseEntity.ok(result);
+
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(Map.of("error", e.getMessage()));
@@ -55,7 +57,7 @@ public class AiController {
     @GetMapping("/history")
     public ResponseEntity<?> getHistory() {
         try {
-            return ResponseEntity.ok(historyRepository.findAllByOrderByEvaluatedAtDesc());
+            return ResponseEntity.ok(historyRepository.findAllSummaries());
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -68,12 +70,12 @@ public class AiController {
         try {
             EvaluationHistory history = historyRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Evaluation record not found"));
-            
+
             String newResult = payload.get("evaluationResult");
             if (newResult == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "No evaluation result provided"));
             }
-            
+
             history.setEvaluationResult(newResult);
 
             if (payload.containsKey("teacherFeedback")) {
@@ -81,8 +83,8 @@ public class AiController {
             }
 
             historyRepository.save(history);
-            
             return ResponseEntity.ok(Map.of("message", "Evaluation updated successfully"));
+
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -95,11 +97,11 @@ public class AiController {
         try {
             EvaluationHistory history = historyRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Evaluation record not found"));
-            
+
             history.setIsSent(true);
             historyRepository.save(history);
-            
             return ResponseEntity.ok(Map.of("message", "Report sent to student successfully"));
+
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -110,15 +112,33 @@ public class AiController {
     @GetMapping("/student-reports")
     public ResponseEntity<?> getStudentReports(@RequestParam String groupCode) {
         try {
-            // FIX #5 (note): This filters by fileName LIKE %groupCode%, which is broad.
-            // If file naming isn't strictly controlled, consider adding a dedicated
-            // groupCode column to EvaluationHistory and querying on that instead.
             return ResponseEntity.ok(historyRepository
                 .findByIsSentTrueAndFileNameContainingIgnoreCaseOrderByEvaluatedAtDesc(groupCode));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to load student reports."));
+        }
+    }
+
+    @GetMapping("/history/{id}")
+    @Transactional(readOnly = true) // This keeps the Hibernate session open
+    public ResponseEntity<?> getHistoryItem(@PathVariable Long id) {
+        try {
+            EvaluationHistory history = historyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Evaluation record not found"));
+            
+            // MANUALLY TRIGGER THE LAZY LOAD:
+            // Accessing the size forces Hibernate to fetch the images 
+            // while the transaction is still active.
+            if (history.getExtractedImages() != null) {
+                history.getExtractedImages().size(); 
+            }
+            
+            return ResponseEntity.ok(history);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 }

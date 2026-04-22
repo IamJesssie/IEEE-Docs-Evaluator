@@ -1,8 +1,11 @@
+import { API_BASE_URL } from '../api';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   analyzeSubmission,
   fetchAiRuntimeSettings,
   fetchClassRoster,
+  fetchHistoryItem,
   fetchTeacherHistory,
   fetchTeacherSettings,
   fetchTeacherSubmissions,
@@ -79,6 +82,8 @@ export function useTeacherDashboard(showToast) {
   const analysisAbortRef = useRef(null);
   const selectedFileRef = useRef(null);
   const isAnalyzeOpenRef = useRef(false);
+
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   useEffect(() => {
     selectedFileRef.current = selectedFile;
@@ -599,12 +604,25 @@ export function useTeacherDashboard(showToast) {
     }
   }
 
-  function startEditingHistory(item) {
-    setSelectedHistoryItem(item);
-    setEditedReportText(item.evaluationResult);
-    setEditedTeacherFeedback(item.teacherFeedback || '');
-    setAiImages(item.extractedImages || []);
-    setIsEditingReport(false);
+  async function startEditingHistory(item) {
+      if (!item?.id) {
+        showToast("Cannot load report: Missing ID", "error");
+        return;
+    }
+      setIsLoadingDetails(true); // Start loading
+      setSelectedHistoryItem(item); // Show the summary info immediately
+      
+      try {
+          const full = await fetchHistoryItem(item.id);
+          setSelectedHistoryItem(full);
+          setEditedReportText(full.evaluationResult || '');
+          setEditedTeacherFeedback(full.teacherFeedback || '');
+          setAiImages(full.extractedImages || []);
+      } catch (err) {
+          showToast(`Failed to load report details: ${err.message}`, 'error');
+      } finally {
+          setIsLoadingDetails(false); // Stop loading
+      }
   }
 
   async function saveEditedHistory() {
