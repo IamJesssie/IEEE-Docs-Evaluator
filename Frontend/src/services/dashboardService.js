@@ -18,6 +18,7 @@ import {
   hideSubmission as hideSubmissionApi,
   restoreSubmission as restoreSubmissionApi,
   getPromptTemplates,
+  clearAllEvaluationHistory,
 } from '../api';
 
 export async function fetchPromptTemplates() {
@@ -102,4 +103,8 @@ export async function restoreSubmission(fileId) {
 
 export async function fetchPromptTemplates() {
   return getPromptTemplates();
+}
+
+export async function clearAllHistory() {
+  return clearAllEvaluationHistory();
 }

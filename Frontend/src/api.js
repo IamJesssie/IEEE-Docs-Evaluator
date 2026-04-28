@@ -227,3 +227,14 @@ export const restoreSubmission = async (fileId) => {
     if (!response.ok) throw new Error(data.error || 'Failed to restore submission.');
     return data;
 };
+
+// ── Danger Zone ───────────────────────────────────────────────────────────────
+
+export const clearAllEvaluationHistory = async () => {
+    const response = await fetch(`${API_BASE_URL}/ai/history/all`, {
+        method: 'DELETE',
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to clear history.');
+    return data;
+};

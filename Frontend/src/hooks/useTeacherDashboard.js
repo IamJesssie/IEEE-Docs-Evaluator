@@ -20,6 +20,7 @@ import {
   fetchHiddenSubmissionIds,
   hideSubmission,
   restoreSubmission,
+  clearAllHistory,
 } from '../services/dashboardService';
 import { buildFilterOptions, extractSubmissionMeta, filterSubmissions, normalizeSection, sortSubmissions } from '../utils/dashboardUtils';
 
@@ -665,6 +666,16 @@ export function useTeacherDashboard(showToast) {
     }
   }
 
+  async function dangerClearAllHistory() {
+    try {
+      await clearAllHistory();
+      setHistoryLogs([]);
+      showToast('All evaluation history cleared.', 'success');
+    } catch (err) {
+      showToast(`Failed to clear history: ${err.message}`, 'error');
+    }
+  }
+
   // ── Exports ───────────────────────────────────────────────────────────────
 
   return {
@@ -748,5 +759,6 @@ export function useTeacherDashboard(showToast) {
     safeEmptyAllTrashBins,
     trashBinSummary,
     hiddenSubmissionIds,
+    dangerClearAllHistory,
   };
 }

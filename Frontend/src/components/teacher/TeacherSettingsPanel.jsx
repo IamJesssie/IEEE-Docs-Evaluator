@@ -61,6 +61,7 @@ export default function TeacherSettingsPanel({
   trashBinSummary,
   onSafeEmptyAllTrashBins,
   onRestoreSelectedTrashItems,
+  onClearAllHistory,
 }) {
   const dbValue = (key) => settings.find((s) => s.key === key)?.value || '';
 
@@ -268,6 +269,23 @@ export default function TeacherSettingsPanel({
   const currentApiKeyError = selectedProvider ? apiKeyErrors[selectedProvider.id] : '';
 
   if (loading) return <div className="ssp-loading">Loading configuration...</div>;
+
+  const [dangerPhrase, setDangerPhrase] = useState('');
+  const [isClearing, setIsClearing] = useState(false);
+
+  const CONFIRM_PHRASE = 'I CONFIRM THIS ACTION, DELETE ALL EVALUATIONS, AND UNDERSTAND THAT THIS IS IRREVERSIBLE';
+  const phraseMatches = dangerPhrase === CONFIRM_PHRASE;
+
+  async function handleClearAll() {
+    if (!phraseMatches) return;
+    setIsClearing(true);
+    try {
+      await onClearAllHistory?.();
+    } finally {
+      setIsClearing(false);
+      setDangerPhrase('');
+    }
+  }
 
   return (
     <div className="ssp-root">
@@ -579,6 +597,63 @@ export default function TeacherSettingsPanel({
           </section>
         );
       })}
+
+      <section className="ssp-card ssp-card--danger-zone" style={{ marginTop: '0.5rem' }}>
+        <h3 className="ssp-card__title" style={{ color: '#dc2626' }}>Danger Zone</h3>
+        <p className="ssp-muted">
+          Permanently deletes all rows from <strong>evaluation_history</strong> and <strong>evaluation_images</strong>.
+          System settings, prompt templates, rubric overrides, and class context are completely untouched.
+          This action cannot be undone.
+        </p>
+
+        <div className="ssp-field ssp-field--stacked" style={{ marginTop: '0.9rem' }}>
+          <label className="ssp-label">
+            Type the confirmation phrase exactly to enable the delete button
+          </label>
+          <span className="ssp-field__hint" style={{ fontFamily: 'monospace', fontSize: '0.82rem', color: '#dc2626', letterSpacing: '0.02em' }}>
+            {CONFIRM_PHRASE}
+          </span>
+          <input
+            className="ssp-input"
+            type="text"
+            value={dangerPhrase}
+            onChange={(e) => setDangerPhrase(e.target.value)}
+            placeholder="Type the phrase above exactly..."
+            disabled={isClearing}
+            style={{
+              fontFamily: 'monospace',
+              width: '100%',
+              boxSizing: 'border-box',
+              borderColor: dangerPhrase.length > 0
+                ? (phraseMatches ? '#16a34a' : '#ef4444')
+                : undefined,
+            }}
+            spellCheck={false}
+            autoComplete="off"
+          />
+          {dangerPhrase.length > 0 && !phraseMatches && (
+            <span className="ssp-field-error">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Phrase does not match. Check capitalisation and spacing.
+            </span>
+          )}
+        </div>
+
+        <div className="ssp-trash-actions" style={{ marginTop: '1rem' }}>
+          <button
+            className="ssp-btn ssp-btn--danger-strong"
+            type="button"
+            onClick={handleClearAll}
+            disabled={!phraseMatches || isClearing}
+          >
+            {isClearing ? 'Deleting...' : 'Delete All Evaluation History'}
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

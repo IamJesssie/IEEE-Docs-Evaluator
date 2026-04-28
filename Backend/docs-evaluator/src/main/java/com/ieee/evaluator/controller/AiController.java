@@ -184,4 +184,20 @@ public class AiController {
                     .body(Map.of("error", e.getMessage()));
         }
     }
+
+    // ── DELETE /api/ai/history/all — danger zone clear ────────────────────────
+    // Deletes ALL rows from evaluation_history and evaluation_images.
+    // CASCADE DELETE on the foreign key handles evaluation_images automatically.
+
+    @DeleteMapping("/history/all")
+    public ResponseEntity<?> clearAllHistory() {
+        try {
+            historyRepository.deleteAll();
+            return ResponseEntity.ok(Map.of("message", "All evaluation history cleared successfully."));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to clear history: " + e.getMessage()));
+        }
+    }
 }
