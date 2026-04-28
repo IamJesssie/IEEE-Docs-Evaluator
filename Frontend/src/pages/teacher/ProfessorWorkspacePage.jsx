@@ -1,5 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useState } from 'react';
+import AppModal from '../../components/common/AppModal';
 import PanelHeader from '../../components/common/PanelHeader';
 import { useProfessorConfig } from '../../hooks/useProfessorConfig';
 import { useToast } from '../../hooks/useToast';
@@ -9,22 +10,15 @@ import './ProfessorWorkspacePage.css';
 
 const DOC_TYPES = ['SRS', 'SDD', 'SPMP', 'STD'];
 
-// ── Hardcoded default labels shown as placeholders ────────────────────────────
-const DEFAULT_RUBRIC_HINTS = {
-  SRS:  'Default: Introduction and Scope, Overall Description, Functional Requirements, Non-Functional Requirements, External Interfaces',
-  SDD:  'Default: System Architecture, Data Design, Component Design, Interface Design, Design Decisions',
-  SPMP: 'Default: Project Scope and Objectives, Scheduling and Timeline, Resource Allocation, Risk Management, Monitoring and Control',
-  STD:  'Default: Test Plan, Test Cases, Test Procedures, Test Coverage, Traceability to Requirements',
-};
-
 // Rough token/cost estimate constants
-const TOKENS_PER_IMAGE_AT_300DPI = 1500; // approximate for a full A4 page at 300 DPI
-const COST_PER_1K_TOKENS = 0.01;         // gpt-4o input approximate
+const TOKENS_PER_IMAGE_AT_300DPI = 1500; 
+const COST_PER_1K_TOKENS = 0.01;         
 
 export default function ProfessorWorkspacePage() {
   const { toast, showToast } = useToast();
-  const config = useProfessorConfig(showToast);
+  const { systemDefaults, ...config } = useProfessorConfig(showToast);
 
+  const [showDefaultsModal, setShowDefaultsModal] = useState(false);
   const [activeDocType, setActiveDocType] = useState('SRS');
 
   // Per-doctype draft state
@@ -36,7 +30,7 @@ export default function ProfessorWorkspacePage() {
 
   // Prompt template form
   const [templateForm, setTemplateForm]     = useState({ name: '', content: '' });
-  const [editingTemplate, setEditingTemplate] = useState(null); // { id, name, content }
+  const [editingTemplate, setEditingTemplate] = useState(null); 
 
   // Render settings
   const [renderDpi, setRenderDpi]         = useState('300');
@@ -84,7 +78,7 @@ export default function ProfessorWorkspacePage() {
   const costEstimate = (() => {
     const pages = parseInt(renderMaxPages, 10);
     if (isNaN(pages) || pages <= 0) return null;
-    const capped = Math.min(pages, 50); // cap display at 50 for sanity
+    const capped = Math.min(pages, 50); 
     const tokens = capped * TOKENS_PER_IMAGE_AT_300DPI;
     const cost   = (tokens / 1000) * COST_PER_1K_TOKENS;
     return { tokens: tokens.toLocaleString(), cost: cost.toFixed(4), pages: capped };
@@ -100,6 +94,23 @@ export default function ProfessorWorkspacePage() {
     setRubricDrafts((prev)  => ({ ...prev,  [docType]: '' }));
     setDiagramDrafts((prev) => ({ ...prev, [docType]: '' }));
     config.saveDocProfile(docType, '', '');
+    showToast(`${docType} override cleared. Reverting to system defaults.`, 'success');
+  }
+
+  function handleShowDefaultsModal() {
+    if (!systemDefaults || !systemDefaults[activeDocType]) {
+      showToast('System defaults are still loading, please wait.', 'error');
+      return;
+    }
+    setShowDefaultsModal(true);
+  }
+
+  // Applies the text from the modal to the editor
+  function handleApplyDefaultsFromModal() {
+    setRubricDrafts((prev) => ({ ...prev, [activeDocType]: systemDefaults[activeDocType].rubricSection }));
+    setDiagramDrafts((prev) => ({ ...prev, [activeDocType]: systemDefaults[activeDocType].diagramSection }));
+    setShowDefaultsModal(false);
+    showToast(`${activeDocType} defaults loaded into editor. Click Save to apply.`, 'success');
   }
 
   // ── Template actions ──────────────────────────────────────────────────────
@@ -238,10 +249,9 @@ export default function ProfessorWorkspacePage() {
           {/* Rubric section */}
           <div className="pw-field">
             <label className="pw-label">Rubric Section</label>
-            <span className="pw-hint">{DEFAULT_RUBRIC_HINTS[activeDocType]}</span>
             <textarea
               className="pw-textarea"
-              placeholder="Leave blank to use the default rubric criteria above."
+              placeholder={`Leave blank to use the default rubric criteria for ${activeDocType}. Click 'Show Defaults' below to view them.`}
               value={rubricDrafts[activeDocType]}
               onChange={(e) => setRubricDrafts((prev) => ({ ...prev, [activeDocType]: e.target.value }))}
               rows={6}
@@ -251,26 +261,36 @@ export default function ProfessorWorkspacePage() {
           {/* Diagram section */}
           <div className="pw-field">
             <label className="pw-label">Diagram Analysis Section</label>
-            <span className="pw-hint">Leave blank to use the default diagram analysis instructions for {activeDocType}.</span>
             <textarea
               className="pw-textarea"
-              placeholder="Leave blank to use the default diagram analysis instructions."
+              placeholder={`Leave blank to use the default diagram analysis instructions for ${activeDocType}. Click 'Show Defaults' below to view them.`}
               value={diagramDrafts[activeDocType]}
               onChange={(e) => setDiagramDrafts((prev) => ({ ...prev, [activeDocType]: e.target.value }))}
               rows={8}
             />
           </div>
 
-          <div className="pw-action-row">
+          <div className="pw-action-row" style={{ display: 'flex', gap: '10px' }}>
+            <button
+              className="pw-btn pw-btn--soft"
+              onClick={handleShowDefaultsModal}
+              title="Loads the system defaults into the text boxes so you can view or edit them."
+            >
+              Show Defaults
+            </button>
+            
             <button
               className="pw-btn pw-btn--ghost"
               onClick={() => handleClearDocProfile(activeDocType)}
+              title="Clears the text boxes and reverts to the system defaults."
             >
               Clear Override
             </button>
+            
             <button
               className="pw-btn pw-btn--primary"
               onClick={() => handleSaveDocProfile(activeDocType)}
+              title="Saves your custom text to override the system defaults."
             >
               Save {activeDocType} Profile
             </button>
@@ -286,7 +306,6 @@ export default function ProfessorWorkspacePage() {
           the Professor Directives field. You can still edit it per session without affecting the saved template.
         </p>
 
-        {/* Existing templates */}
         {config.promptTemplates.length > 0 ? (
           <div className="pw-template-list">
             {config.promptTemplates.map((t) => (
@@ -306,7 +325,6 @@ export default function ProfessorWorkspacePage() {
           <p className="pw-muted" style={{ marginBottom: '1rem' }}>No templates saved yet. Create one below.</p>
         )}
 
-        {/* Create / edit form */}
         <div className="pw-template-form">
           <h4 className="pw-template-form__title">
             {editingTemplate ? `Editing: ${editingTemplate.name}` : 'New Template'}
@@ -405,7 +423,6 @@ export default function ProfessorWorkspacePage() {
           </div>
         </div>
 
-        {/* Live cost estimate */}
         {costEstimate && (
           <div className="pw-cost-estimate">
             <span className="pw-cost-estimate__label">Estimated image tokens per evaluation</span>
@@ -420,6 +437,52 @@ export default function ProfessorWorkspacePage() {
           </div>
         )}
       </section>
+
+      {/* ── System Defaults Modal ────────────────────────────────────────── */}
+      {showDefaultsModal && systemDefaults && systemDefaults[activeDocType] && (
+        <AppModal 
+          isOpen={showDefaultsModal} 
+          onClose={() => setShowDefaultsModal(false)}
+          title={`System Defaults for ${activeDocType}`}
+        >
+          <div style={{ padding: '1rem', maxWidth: '800px' }}>
+            <p className="pw-muted" style={{ marginBottom: '1rem' }}>
+              These are the hardcoded system defaults. You can reference them, copy specific parts, or apply the whole template to your editor.
+            </p>
+            
+            <div className="pw-field">
+              <label className="pw-label">Default Rubric Section</label>
+              <textarea
+                className="pw-textarea"
+                readOnly
+                rows={6}
+                value={systemDefaults[activeDocType].rubricSection}
+                style={{ backgroundColor: 'var(--bg-secondary)', cursor: 'text' }}
+              />
+            </div>
+            
+            <div className="pw-field">
+              <label className="pw-label">Default Diagram Analysis Section</label>
+              <textarea
+                className="pw-textarea"
+                readOnly
+                rows={8}
+                value={systemDefaults[activeDocType].diagramSection}
+                style={{ backgroundColor: 'var(--bg-secondary)', cursor: 'text' }}
+              />
+            </div>
+            
+            <div className="pw-action-row" style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button className="pw-btn pw-btn--ghost" onClick={() => setShowDefaultsModal(false)}>
+                Close
+              </button>
+              <button className="pw-btn pw-btn--primary" onClick={handleApplyDefaultsFromModal}>
+                Apply to Editor
+              </button>
+            </div>
+          </div>
+        </AppModal>
+      )}
     </div>
   );
 }

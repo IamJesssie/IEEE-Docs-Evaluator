@@ -4,18 +4,13 @@ import { API_BASE_URL } from '../api';
 
 /**
  * Manages all professor configuration state with real-time Supabase subscriptions.
- * Used by the Professor Workspace (Step 11).
- *
- * Covers:
- *   - professor_doc_profiles  (rubric + diagram overrides per doc type)
- *   - prompt_templates        (named reusable instruction sets)
- *   - class_context_profile   (single paragraph describing the current class)
  */
 export function useProfessorConfig(showToast) {
 
   const [docProfiles, setDocProfiles]         = useState([]);
   const [promptTemplates, setPromptTemplates] = useState([]);
-  const [classContext, setClassContext]        = useState('');
+  const [classContext, setClassContext]       = useState('');
+  const [systemDefaults, setSystemDefaults]   = useState(null); 
   const [loading, setLoading]                 = useState(true);
 
   // ── Loaders ───────────────────────────────────────────────────────────────
@@ -25,6 +20,16 @@ export function useProfessorConfig(showToast) {
       const res = await fetch(`${API_BASE_URL}/professor/doc-profiles`);
       if (!res.ok) throw new Error('Failed to fetch doc profiles.');
       setDocProfiles(await res.json());
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const loadSystemDefaults = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/professor/doc-profiles/defaults`);
+      if (!res.ok) throw new Error('Failed to fetch system defaults.');
+      setSystemDefaults(await res.json());
     } catch (err) {
       console.error(err);
     }
@@ -53,9 +58,14 @@ export function useProfessorConfig(showToast) {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadDocProfiles(), loadPromptTemplates(), loadClassContext()]);
+    await Promise.all([
+        loadDocProfiles(), 
+        loadPromptTemplates(), 
+        loadClassContext(), 
+        loadSystemDefaults()
+    ]);
     setLoading(false);
-  }, [loadDocProfiles, loadPromptTemplates, loadClassContext]);
+  }, [loadDocProfiles, loadPromptTemplates, loadClassContext, loadSystemDefaults]);
 
   useEffect(() => {
     loadAll();
@@ -190,6 +200,7 @@ export function useProfessorConfig(showToast) {
     docProfiles,
     promptTemplates,
     classContext,
+    systemDefaults,
     setClassContext,
     loading,
     loadAll,

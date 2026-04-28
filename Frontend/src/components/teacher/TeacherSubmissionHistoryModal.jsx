@@ -133,7 +133,9 @@ function TeacherSubmissionHistoryModal({ isOpen, file, logs, onViewReport, onDel
 											</span>
 										</td>
 										<td>
-											<div className="modal-actions modal-actions--end submission-history-modal__row-actions">
+											<div 
+												className="modal-actions submission-history-modal__row-actions" 
+												style={{ justifyContent: 'center' }}>
 												<button className="btn btn--soft" onClick={() => onViewReport(log)}>
 													View Details
 												</button>
