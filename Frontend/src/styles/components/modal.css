@@ -11,7 +11,7 @@
 }
 
 .app-modal__container {
-  width: min(760px, 100%);
+  width: min(1000px, 100%);
   max-height: 90vh;
   background: var(--bg-surface);
   border-radius: 16px;
@@ -22,11 +22,11 @@
 }
 
 .app-modal__container.submission-history-modal {
-  width: min(980px, 100%);
+  width: min(1200px, 100%);
 }
 
 .app-modal__container.teacher-analyze-modal {
-  width: min(980px, 100%);
+  width: min(1000px, 100%);
 }
 
 .submission-history-modal .app-table {
@@ -223,9 +223,14 @@
 
 .submission-history-modal__row-actions {
   flex-wrap: nowrap;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 0.45rem;
   min-width: 0;
+}
+
+/* Centers the word "ACTION" in the table header */
+.submission-history-modal__table th:nth-child(5) {
+  text-align: center;
 }
 
 .submission-history-modal__row-actions .btn {
@@ -247,22 +252,22 @@
 
 .submission-history-modal__table th:nth-child(1),
 .submission-history-modal__table td:nth-child(1) {
-  width: 170px;
+  width: 100px;
 }
 
 .submission-history-modal__table th:nth-child(2),
 .submission-history-modal__table td:nth-child(2) {
-  width: auto;
+  width: 200px;
 }
 
 .submission-history-modal__table th:nth-child(3),
 .submission-history-modal__table td:nth-child(3) {
-  width: 150px;
+  width: 300px;
 }
 
 .submission-history-modal__table th:nth-child(4),
 .submission-history-modal__table td:nth-child(4) {
-  width: 300px;
+  width: 150px;
 }
 
 .submission-history-modal__table th:nth-child(4) {
@@ -670,4 +675,63 @@
 
 .app-modal__body::-webkit-scrollbar-thumb:hover {
   background-color: var(--text-muted, #94a3b8); 
+}
+
+/* ── Template selector in TeacherAnalyzeModal ────────────────────────────── */
+.custom-rules-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.72rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--line-soft);
+  background-color: var(--bg-surface-2);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 0.35rem;
+}
+
+.custom-rules-select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--brand) 55%, var(--line-soft));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--glow) 38%, transparent);
+  background-color: var(--bg-surface);
+}
+
+.custom-rules-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+[data-theme='dark'] .custom-rules-select {
+  background-color: var(--bg-surface-2);
+  color: var(--text-main);
+  border-color: var(--line-soft);
+}
+
+/* --- Soft Danger Button (Matches 'View Details' style) --- */
+.btn.btn--danger {
+  /* Light red background, transparent */
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+  color: #dc2626; /* Dark red text */
+  border: 1px solid color-mix(in srgb, #ef4444 25%, transparent);
+}
+
+.btn.btn--danger:hover {
+  /* Darkens slightly on hover */
+  background: color-mix(in srgb, #ef4444 20%, transparent);
+  color: #b91c1c; 
+}
+
+/* Dark mode support (if your app uses it) */
+[data-theme='dark'] .btn.btn--danger {
+  color: #f87171; 
+  background: color-mix(in srgb, #ef4444 15%, transparent);
+}
+
+[data-theme='dark'] .btn.btn--danger:hover {
+  background: color-mix(in srgb, #ef4444 25%, transparent);
+  color: #fca5a5;
 }
