@@ -19,22 +19,34 @@ import java.util.List;
 @Service
 @Slf4j
 public class GoogleDocsService {
-    private static final String GOOGLE_DOC_MIME = "application/vnd.google-apps.document";
-    private static final String PDF_MIME = "application/pdf";
-    private static final String DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    private static final String PLAIN_TEXT_MIME = "text/plain";
+
+    private static final String GOOGLE_DOC_MIME  = "application/vnd.google-apps.document";
+    private static final String PDF_MIME         = "application/pdf";
+    private static final String DOCX_MIME        = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    private static final String PLAIN_TEXT_MIME  = "text/plain";
 
     private final Drive driveService;
     private final PdfImageExtractor pdfImageExtractor;
 
     public GoogleDocsService(Drive driveService, PdfImageExtractor pdfImageExtractor) {
-        this.driveService = driveService;
+        this.driveService      = driveService;
         this.pdfImageExtractor = pdfImageExtractor;
     }
 
     public record DocumentData(String text, List<String> images) {}
 
+    // ── Overload without progress (keeps existing callers working) ────────────
+
     public DocumentData extractDocumentContent(String fileId, int maxPages) throws Exception {
+        return extractDocumentContent(fileId, maxPages, null, null);
+    }
+
+    // ── Main extraction with optional progress reporting ──────────────────────
+
+    public DocumentData extractDocumentContent(
+            String fileId, int maxPages,
+            String sessionId, ProgressEmitter emitter) throws Exception {
+
         if (fileId == null || fileId.isEmpty()) {
             throw new IllegalArgumentException("File ID cannot be null or empty");
         }
@@ -47,28 +59,62 @@ public class GoogleDocsService {
             List<String> images = List.of();
 
             if (GOOGLE_DOC_MIME.equals(mimeType)) {
-                // Native plain text export is more accurate for Google Docs
-                try (InputStream is = driveService.files().export(fileId, PLAIN_TEXT_MIME).executeMediaAsInputStream()) {
+                progress(emitter, sessionId, "EXTRACTING",
+                    "Exporting Google Doc as plain text", 15);
+                try (InputStream is = driveService.files().export(fileId, PLAIN_TEXT_MIME)
+                        .executeMediaAsInputStream()) {
                     text = new String(is.readAllBytes(), StandardCharsets.UTF_8);
                 }
-                // Separate PDF export for image extraction
+                progress(emitter, sessionId, "RENDERING",
+                    "Exporting Google Doc as PDF for page rendering", 22);
                 byte[] pdfBytes = exportGoogleDocAsPdf(fileId);
+
+                progress(emitter, sessionId, "RENDERING",
+                    "Rendering PDF pages to images for diagram analysis", 28);
                 images = pdfImageExtractor.extractFirstPagesAsBase64Pngs(pdfBytes, maxPages);
+
+                progress(emitter, sessionId, "RENDERING",
+                    "Rendered " + images.size() + " page(s) successfully", 48);
             }
             else if (PDF_MIME.equals(mimeType)) {
-                // Single download, reuse bytes for both text and images
+                progress(emitter, sessionId, "EXTRACTING",
+                    "Downloading PDF document", 15);
                 byte[] pdfBytes = downloadBlobBytes(fileId);
+
+                progress(emitter, sessionId, "EXTRACTING",
+                    "Extracting text content from PDF", 22);
                 text = extractTextWithTika(new ByteArrayInputStream(pdfBytes));
+
+                progress(emitter, sessionId, "RENDERING",
+                    "Rendering PDF pages to images for diagram analysis", 28);
                 images = pdfImageExtractor.extractFirstPagesAsBase64Pngs(pdfBytes, maxPages);
+
+                progress(emitter, sessionId, "RENDERING",
+                    "Rendered " + images.size() + " page(s) successfully", 48);
             }
             else if (DOCX_MIME.equals(mimeType)) {
-                // Single download, reuse bytes for both text and PDF conversion
+                progress(emitter, sessionId, "EXTRACTING",
+                    "Downloading DOCX document", 15);
                 byte[] docxBytes = downloadBlobBytes(fileId);
+
+                progress(emitter, sessionId, "EXTRACTING",
+                    "Extracting text content from DOCX", 22);
                 text = extractTextWithTika(new ByteArrayInputStream(docxBytes));
+
+                progress(emitter, sessionId, "RENDERING",
+                    "Converting DOCX to PDF for page rendering", 28);
                 byte[] pdfBytes = convertDocxToTemporaryGoogleDocAndExportPdf(fileInfo, docxBytes);
+
+                progress(emitter, sessionId, "RENDERING",
+                    "Rendering PDF pages to images for diagram analysis", 35);
                 images = pdfImageExtractor.extractFirstPagesAsBase64Pngs(pdfBytes, maxPages);
+
+                progress(emitter, sessionId, "RENDERING",
+                    "Rendered " + images.size() + " page(s) successfully", 48);
             }
             else if (PLAIN_TEXT_MIME.equals(mimeType)) {
+                progress(emitter, sessionId, "EXTRACTING",
+                    "Downloading plain text document", 15);
                 byte[] textBytes = downloadBlobBytes(fileId);
                 text = new String(textBytes, StandardCharsets.UTF_8);
             }
@@ -86,48 +132,41 @@ public class GoogleDocsService {
         }
     }
 
+    // ── Vision export (unchanged) ─────────────────────────────────────────────
+
     public byte[] exportDocAsPdfBytesForVision(String fileId) throws Exception {
         if (fileId == null || fileId.isEmpty()) {
             throw new IllegalArgumentException("File ID cannot be null or empty");
         }
-
         try {
             File fileInfo = driveService.files().get(fileId).setFields("id,name,mimeType").execute();
             String mimeType = fileInfo.getMimeType();
 
-            if (GOOGLE_DOC_MIME.equals(mimeType)) {
-                return exportGoogleDocAsPdf(fileId);
-            }
-
-            if (PDF_MIME.equals(mimeType)) {
-                return downloadBlobBytes(fileId);
-            }
-
+            if (GOOGLE_DOC_MIME.equals(mimeType)) return exportGoogleDocAsPdf(fileId);
+            if (PDF_MIME.equals(mimeType))        return downloadBlobBytes(fileId);
             if (DOCX_MIME.equals(mimeType)) {
                 byte[] docxBytes = downloadBlobBytes(fileId);
                 return convertDocxToTemporaryGoogleDocAndExportPdf(fileInfo, docxBytes);
             }
-
             throw new Exception(
-                "Unsupported file format for Gemini vision: " + fileInfo.getName() + " (" + mimeType + "). " +
-                "Supported formats are Google Docs, PDF, and DOCX."
+                "Unsupported file format for vision: " + fileInfo.getName() + " (" + mimeType + ")."
             );
-
         } catch (GoogleJsonResponseException e) {
             throw toFriendlyDriveException(e);
         }
     }
 
-    private byte[] convertDocxToTemporaryGoogleDocAndExportPdf(File sourceFile, byte[] docxBytes) throws Exception {
-        String tempGoogleDocId = null;
+    // ── Internal helpers ──────────────────────────────────────────────────────
 
+    private byte[] convertDocxToTemporaryGoogleDocAndExportPdf(
+            File sourceFile, byte[] docxBytes) throws Exception {
+        String tempGoogleDocId = null;
         try {
             File tempMetadata = new File();
-            tempMetadata.setName(sourceFile.getName() + " [tmp-gemini-conversion]");
+            tempMetadata.setName(sourceFile.getName() + " [tmp-conversion]");
             tempMetadata.setMimeType(GOOGLE_DOC_MIME);
 
             ByteArrayContent mediaContent = new ByteArrayContent(DOCX_MIME, docxBytes);
-
             File tempGoogleDoc = driveService.files()
                     .create(tempMetadata, mediaContent)
                     .setFields("id,name,mimeType")
@@ -137,11 +176,8 @@ public class GoogleDocsService {
             return exportGoogleDocAsPdf(tempGoogleDocId);
         } finally {
             if (tempGoogleDocId != null) {
-                try {
-                    driveService.files().delete(tempGoogleDocId).execute();
-                } catch (Exception cleanupError) {
-                    log.warn("Failed to delete temporary converted Google Doc: {}", cleanupError.getMessage());
-                }
+                try { driveService.files().delete(tempGoogleDocId).execute(); }
+                catch (Exception e) { log.warn("Failed to delete temp Google Doc: {}", e.getMessage()); }
             }
         }
     }
@@ -160,20 +196,36 @@ public class GoogleDocsService {
 
     private String extractTextWithTika(InputStream inputStream) throws Exception {
         BodyContentHandler handler = new BodyContentHandler(-1);
-        AutoDetectParser parser = new AutoDetectParser();
-        Metadata metadata = new Metadata();
-        ParseContext context = new ParseContext();
-
-        parser.parse(inputStream, handler, metadata, context);
+        AutoDetectParser   parser  = new AutoDetectParser();
+        Metadata           meta    = new Metadata();
+        ParseContext       ctx     = new ParseContext();
+        parser.parse(inputStream, handler, meta, ctx);
         return handler.toString();
     }
 
     private Exception toFriendlyDriveException(GoogleJsonResponseException e) {
-        if (e.getStatusCode() == 403 || e.getStatusCode() == 404) {
+        if (e.getStatusCode() == 403) {
             return new Exception(
-                "Permission denied or file not found. Ensure sharing is set to Anyone with the link can view."
+                "PERMISSION DENIED: The service account does not have access to this file. " +
+                "Please set the sharing to 'Anyone with the link' and ensure the access level " +
+                "is set to 'Editor' (not Viewer or Commenter). " +
+                "Viewer access is not sufficient — the service account requires Editor permissions " +
+                "to export and read the document contents."
+            );
+        }
+        if (e.getStatusCode() == 404) {
+            return new Exception(
+                "FILE NOT FOUND: The document could not be located. " +
+                "Please verify the file exists and sharing is set to " +
+                "'Anyone with the link' with 'Editor' access."
             );
         }
         return e;
+    }
+
+    private void progress(ProgressEmitter emitter, String sessionId,
+                          String step, String message, int percent) {
+        if (emitter == null || sessionId == null || sessionId.isBlank()) return;
+        emitter.emit(sessionId, step, message, percent);
     }
 }

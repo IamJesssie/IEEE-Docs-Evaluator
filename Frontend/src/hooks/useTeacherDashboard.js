@@ -1,5 +1,4 @@
 import { API_BASE_URL } from '../api';
-
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import {
@@ -22,7 +21,20 @@ import {
   restoreSubmission,
   clearAllHistory,
 } from '../services/dashboardService';
-import { buildFilterOptions, extractSubmissionMeta, filterSubmissions, normalizeSection, sortSubmissions } from '../utils/dashboardUtils';
+import {
+  buildFilterOptions,
+  extractSubmissionMeta,
+  filterSubmissions,
+  normalizeSection,
+  sortSubmissions,
+} from '../utils/dashboardUtils';
+
+// ── Tiny UUID helper (no dependency needed) ───────────────────────────────────
+function generateSessionId() {
+  return crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
 
 export function useTeacherDashboard(showToast) {
   const [currentView, setCurrentView] = useState('submissions');
@@ -43,6 +55,14 @@ export function useTeacherDashboard(showToast) {
   const [aiResult, setAiResult] = useState('');
   const [aiImages, setAiImages] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // ── SSE progress state ────────────────────────────────────────────────────
+  const [analysisProgress, setAnalysisProgress] = useState({
+    currentStep: '',
+    currentMessage: '',
+    percent: 0,
+    isRetrying: false,
+  });
 
   const [historyLogs, setHistoryLogs] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -65,116 +85,126 @@ export function useTeacherDashboard(showToast) {
   const [isSavingAll, setIsSavingAll] = useState(false);
   const [aiRuntimeSettings, setAiRuntimeSettings] = useState(null);
   const [promptTemplates, setPromptTemplates] = useState([]);
-
   const [roster, setRoster] = useState([]);
 
-  const analysisAbortRef = useRef(null);
-  const selectedFileRef = useRef(null);
-  const isAnalyzeOpenRef = useRef(false);
-
+  const analysisAbortRef  = useRef(null);
+  const sseRef            = useRef(null);   // holds the EventSource
+  const sessionIdRef      = useRef(null);   // current analysis session ID
+  const selectedFileRef   = useRef(null);
+  const isAnalyzeOpenRef  = useRef(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-  useEffect(() => { selectedFileRef.current = selectedFile; }, [selectedFile]);
+  useEffect(() => { selectedFileRef.current  = selectedFile;  }, [selectedFile]);
   useEffect(() => { isAnalyzeOpenRef.current = isAnalyzeOpen; }, [isAnalyzeOpen]);
+
+  // ── SSE cleanup on unmount ────────────────────────────────────────────────
+  useEffect(() => {
+    return () => closeSse();
+  }, []);
+
+  function closeSse() {
+    if (sseRef.current) {
+      sseRef.current.close();
+      sseRef.current = null;
+    }
+    sessionIdRef.current = null;
+  }
+
+  function openSse(sessionId) {
+    closeSse();
+    const es = new EventSource(`${API_BASE_URL}/ai/progress/${sessionId}`);
+    sseRef.current    = es;
+    sessionIdRef.current = sessionId;
+
+    es.addEventListener('progress', (e) => {
+      try {
+        const { step, message, percent } = JSON.parse(e.data);
+        setAnalysisProgress({
+          currentStep:    step,
+          currentMessage: message,
+          percent:        percent,
+          isRetrying:     step === 'RETRYING',
+        });
+      } catch { /* ignore parse errors */ }
+    });
+
+    es.addEventListener('done', () => {
+      closeSse();
+    });
+
+    es.addEventListener('error', (e) => {
+      try {
+        const { error: msg } = JSON.parse(e.data || '{}');
+        if (msg) showToast(`Analysis error: ${msg}`, 'error');
+      } catch { /* ignore */ }
+      closeSse();
+    });
+
+    es.onerror = () => {
+      // Connection dropped — close silently; the HTTP response handles error UI
+      closeSse();
+    };
+  }
 
   // ── Real-time subscriptions ───────────────────────────────────────────────
 
   useEffect(() => {
-    // evaluation_history — refreshes reports view and analyzedFileIds automatically
     const historyChannel = supabase
       .channel('teacher-evaluation-history')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'evaluation_history' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            // New evaluation completed — reload history silently
-            loadHistory().catch(() => {});
-          }
-          if (payload.eventType === 'UPDATE') {
-            // is_sent changed, is_deleted changed, or result edited
-            setHistoryLogs((prev) =>
-              prev.map((log) => {
-                if (log.id === payload.new.id) {
-                  // If soft-deleted by another session, remove from view
-                  if (payload.new.is_deleted) return null;
-                  // Otherwise merge the updated fields into the summary
-                  return {
-                    ...log,
-                    isSent: payload.new.is_sent,
-                    isDeleted: payload.new.is_deleted,
-                    version: payload.new.version,
-                  };
-                }
-                return log;
-              }).filter(Boolean)
-            );
-          }
-          if (payload.eventType === 'DELETE') {
-            setHistoryLogs((prev) => prev.filter((log) => log.id !== payload.old.id));
-          }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'evaluation_history' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          loadHistory().catch(() => {});
         }
-      )
+        if (payload.eventType === 'UPDATE') {
+          setHistoryLogs((prev) =>
+            prev.map((log) => {
+              if (log.id === payload.new.id) {
+                if (payload.new.is_deleted) return null;
+                return { ...log, isSent: payload.new.is_sent, isDeleted: payload.new.is_deleted, version: payload.new.version };
+              }
+              return log;
+            }).filter(Boolean)
+          );
+        }
+        if (payload.eventType === 'DELETE') {
+          setHistoryLogs((prev) => prev.filter((log) => log.id !== payload.old.id));
+        }
+      })
       .subscribe();
 
-    // hidden_submissions — hiding/restoring reflects immediately across all sessions
     const hiddenChannel = supabase
       .channel('teacher-hidden-submissions')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'hidden_submissions' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setHiddenSubmissionIds((prev) =>
-              prev.includes(payload.new.file_id) ? prev : [...prev, payload.new.file_id]
-            );
-          }
-          if (payload.eventType === 'DELETE') {
-            setHiddenSubmissionIds((prev) =>
-              prev.filter((id) => id !== payload.old.file_id)
-            );
-          }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hidden_submissions' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setHiddenSubmissionIds((prev) =>
+            prev.includes(payload.new.file_id) ? prev : [...prev, payload.new.file_id]
+          );
         }
-      )
+        if (payload.eventType === 'DELETE') {
+          setHiddenSubmissionIds((prev) => prev.filter((id) => id !== payload.old.file_id));
+        }
+      })
       .subscribe();
 
-    // prompt_templates — template list stays in sync across sessions
     const templatesChannel = supabase
       .channel('teacher-prompt-templates')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'prompt_templates' },
-        () => {
-          // Re-fetch the full sorted list on any change
-          fetchPromptTemplates().then(setPromptTemplates).catch(() => {});
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'prompt_templates' }, () => {
+        fetchPromptTemplates().then(setPromptTemplates).catch(() => {});
+      })
       .subscribe();
 
-    // professor_doc_profiles — rubric/diagram overrides propagate immediately
     const docProfilesChannel = supabase
       .channel('teacher-doc-profiles')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'professor_doc_profiles' },
-        () => {
-          // No local state to update here — profiles are read by the backend
-          // at evaluation time. Just log for visibility.
-          console.info('[realtime] professor_doc_profiles updated');
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'professor_doc_profiles' }, () => {
+        console.info('[realtime] professor_doc_profiles updated');
+      })
       .subscribe();
 
-    // class_context_profile — context change propagates immediately
     const classContextChannel = supabase
       .channel('teacher-class-context')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'class_context_profile' },
-        () => {
-          console.info('[realtime] class_context_profile updated');
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'class_context_profile' }, () => {
+        console.info('[realtime] class_context_profile updated');
+      })
       .subscribe();
 
     return () => {
@@ -244,23 +274,15 @@ export function useTeacherDashboard(showToast) {
       ]);
       setAiRuntimeSettings(runtimeSettings);
       setPromptTemplates(templates);
-    } catch {
-      // Keep UI usable with fallback options when runtime endpoint fails.
-    }
+    } catch { /* keep UI usable */ }
   }
 
-  const analyzedFileIds = useMemo(() => {
-    return new Set(historyLogs.map((h) => h.fileId));
-  }, [historyLogs]);
+  const analyzedFileIds = useMemo(() => new Set(historyLogs.map((h) => h.fileId)), [historyLogs]);
 
   useEffect(() => {
-    if (currentView === 'submissions') {
-      loadSubmissions();
-      loadHistory();
-      loadAiRuntime();
-    }
-    if (currentView === 'reports') loadHistory();
-    if (currentView === 'settings') loadSettings();
+    if (currentView === 'submissions') { loadSubmissions(); loadHistory(); loadAiRuntime(); }
+    if (currentView === 'reports')     loadHistory();
+    if (currentView === 'settings')    loadSettings();
     if (currentView === 'submissions' || currentView === 'reports') {
       fetchClassRoster().then(setRoster).catch(() => {});
     }
@@ -279,11 +301,10 @@ export function useTeacherDashboard(showToast) {
   }, [files, roster]);
 
   const filteredFiles = useMemo(
-    () =>
-      filterSubmissions(
-        files.filter((item) => !hiddenSubmissionIds.includes(item.id)),
-        { selectedStudent, selectedSection, selectedTeamCode, selectedDocType, searchQuery },
-      ),
+    () => filterSubmissions(
+      files.filter((item) => !hiddenSubmissionIds.includes(item.id)),
+      { selectedStudent, selectedSection, selectedTeamCode, selectedDocType, searchQuery },
+    ),
     [files, hiddenSubmissionIds, selectedStudent, selectedSection, selectedTeamCode, selectedDocType, searchQuery],
   );
 
@@ -292,20 +313,17 @@ export function useTeacherDashboard(showToast) {
   const submissionStats = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const isSearchingStudent = query.length > 0;
-
     const scoped = files.filter((item) => {
       const meta = extractSubmissionMeta(item.name);
-      if (selectedSection && meta.section !== normalizeSection(selectedSection)) return false;
-      if (selectedTeamCode && meta.teamCode !== selectedTeamCode.toUpperCase()) return false;
+      if (selectedSection  && meta.section  !== normalizeSection(selectedSection))            return false;
+      if (selectedTeamCode && meta.teamCode !== selectedTeamCode.toUpperCase())               return false;
       return true;
     });
-
     const scopedRoster = roster.filter((s) => {
-      if (selectedSection && s.section !== selectedSection) return false;
+      if (selectedSection  && s.section              !== selectedSection)             return false;
       if (selectedTeamCode && s.groupCode?.toUpperCase() !== selectedTeamCode.toUpperCase()) return false;
       return true;
     });
-
     if (isSearchingStudent) {
       const matched = scoped.filter((item) => {
         const meta = extractSubmissionMeta(item.name);
@@ -316,9 +334,8 @@ export function useTeacherDashboard(showToast) {
         ...matched.map((f) => extractSubmissionMeta(f.name).studentName),
         ...rosterMatched.map((s) => s.studentName),
       ].filter(Boolean))];
-      const displayName = matchedNames.length === 1 ? matchedNames[0] : null;
       return {
-        studentName: displayName,
+        studentName: matchedNames.length === 1 ? matchedNames[0] : null,
         studentCount: matchedNames.length,
         docCounts: ['SRS', 'SDD', 'SPMP', 'STD'].map((type) => ({
           type,
@@ -326,11 +343,9 @@ export function useTeacherDashboard(showToast) {
         })),
       };
     }
-
     const studentCount = scopedRoster.length > 0
       ? scopedRoster.length
       : new Set(scoped.map((item) => extractSubmissionMeta(item.name).studentName).filter(Boolean)).size;
-
     return {
       studentName: null,
       studentCount,
@@ -347,9 +362,7 @@ export function useTeacherDashboard(showToast) {
   );
 
   const reportFilterOptions = useMemo(() => {
-    const students  = new Set();
-    const sections  = new Set();
-    const teamCodes = new Set();
+    const students = new Set(), sections = new Set(), teamCodes = new Set();
     historyLogs.forEach((item) => {
       const meta = extractSubmissionMeta(item.fileName);
       if (meta.studentName) students.add(meta.studentName);
@@ -378,9 +391,9 @@ export function useTeacherDashboard(showToast) {
       if (reportStatusFilter === 'sent'    && !log.isSent) return false;
       if (reportStatusFilter === 'pending' &&  log.isSent) return false;
       if (reportDocTypeFilter && docType !== reportDocTypeFilter) return false;
-      if (reportSelectedStudent  && meta.studentName !== reportSelectedStudent) return false;
-      if (reportSelectedSection  && meta.section !== normalizeSection(reportSelectedSection)) return false;
-      if (reportSelectedTeamCode && meta.teamCode !== reportSelectedTeamCode.toUpperCase()) return false;
+      if (reportSelectedStudent  && meta.studentName !== reportSelectedStudent)                       return false;
+      if (reportSelectedSection  && meta.section     !== normalizeSection(reportSelectedSection))    return false;
+      if (reportSelectedTeamCode && meta.teamCode    !== reportSelectedTeamCode.toUpperCase())       return false;
       if (query) {
         const searchable = [log.fileName, log.isSent ? 'sent' : 'pending', log.evaluatedAt]
           .filter(Boolean).join(' ').toLowerCase();
@@ -392,32 +405,21 @@ export function useTeacherDashboard(showToast) {
 
   const allHistoryCount = historyLogs.length;
 
-  // ── Trash bin summary ─────────────────────────────────────────────────────
+  // ── Trash bin ─────────────────────────────────────────────────────────────
 
   const trashBinSummary = useMemo(() => {
     const trashedSubmissions = files
       .filter((item) => hiddenSubmissionIds.includes(item.id))
       .map((item) => ({ id: item.id, kind: 'submission', label: item.name, meta: 'Student Submission' }));
-
-    return {
-      submissionCount: trashedSubmissions.length,
-      reportCount: 0,
-      trashedSubmissions,
-      trashedReports: [],
-      trashedItems: trashedSubmissions,
-    };
+    return { submissionCount: trashedSubmissions.length, reportCount: 0, trashedSubmissions, trashedReports: [], trashedItems: trashedSubmissions };
   }, [files, hiddenSubmissionIds]);
-
-  // ── Trash actions ─────────────────────────────────────────────────────────
 
   async function deleteReport(reportId) {
     try {
       await softDeleteReport(reportId);
       setHistoryLogs((prev) => prev.filter((log) => log.id !== reportId));
       showToast('Report deleted.', 'success');
-    } catch (err) {
-      showToast(`Failed to delete report: ${err.message}`, 'error');
-    }
+    } catch (err) { showToast(`Failed to delete report: ${err.message}`, 'error'); }
   }
 
   async function deleteSubmission(fileId) {
@@ -425,75 +427,45 @@ export function useTeacherDashboard(showToast) {
       await hideSubmission(fileId);
       setHiddenSubmissionIds((prev) => [...prev, fileId]);
       showToast('Submission hidden.', 'success');
-    } catch (err) {
-      showToast(`Failed to hide submission: ${err.message}`, 'error');
-    }
+    } catch (err) { showToast(`Failed to hide submission: ${err.message}`, 'error'); }
   }
 
   async function restoreSelectedTrashItems(selectedItems = []) {
     const items = selectedItems.filter(Boolean);
-    if (!items.length) {
-      showToast('Select one or more trashed items to restore.', 'success');
-      return;
-    }
+    if (!items.length) { showToast('Select one or more trashed items to restore.', 'success'); return; }
     try {
-      await Promise.all(
-        items.map((item) =>
-          item.kind === 'submission'
-            ? restoreSubmission(item.id)
-            : restoreReport(item.id)
-        )
-      );
-      const restoredSubmissionIds = items.filter((i) => i.kind === 'submission').map((i) => i.id);
-      setHiddenSubmissionIds((prev) => prev.filter((id) => !restoredSubmissionIds.includes(id)));
+      await Promise.all(items.map((item) => item.kind === 'submission' ? restoreSubmission(item.id) : restoreReport(item.id)));
+      const restoredIds = items.filter((i) => i.kind === 'submission').map((i) => i.id);
+      setHiddenSubmissionIds((prev) => prev.filter((id) => !restoredIds.includes(id)));
       showToast(`Restored ${items.length} item(s).`, 'success');
-    } catch (err) {
-      showToast(`Failed to restore items: ${err.message}`, 'error');
-    }
+    } catch (err) { showToast(`Failed to restore items: ${err.message}`, 'error'); }
   }
 
   async function safeEmptyAllTrashBins() {
-    if (!hiddenSubmissionIds.length) {
-      showToast('Trash bins are already empty.', 'success');
-      return;
-    }
+    if (!hiddenSubmissionIds.length) { showToast('Trash bins are already empty.', 'success'); return; }
     try {
       await Promise.all(hiddenSubmissionIds.map((id) => restoreSubmission(id)));
       setHiddenSubmissionIds([]);
       showToast('Trash cleared.', 'success');
-    } catch (err) {
-      showToast(`Failed to empty trash: ${err.message}`, 'error');
-    }
+    } catch (err) { showToast(`Failed to empty trash: ${err.message}`, 'error'); }
   }
 
   // ── Submissions ───────────────────────────────────────────────────────────
 
   function clearReportFilters() {
-    setReportSelectedStudent('');
-    setReportSelectedSection('');
-    setReportSelectedTeamCode('');
-    setReportStatusFilter('');
-    setReportDocTypeFilter('');
-    setReportSearchQuery('');
+    setReportSelectedStudent(''); setReportSelectedSection(''); setReportSelectedTeamCode('');
+    setReportStatusFilter(''); setReportDocTypeFilter(''); setReportSearchQuery('');
   }
 
   async function handleManualSync() {
     if (loading || isSyncing) return;
     try {
-      setIsSyncing(true);
-      setError('');
-      const [data, hiddenIds] = await Promise.all([
-        fetchTeacherSubmissions(),
-        fetchHiddenSubmissionIds(),
-      ]);
-      setFiles(data);
-      setHiddenSubmissionIds(hiddenIds);
+      setIsSyncing(true); setError('');
+      const [data, hiddenIds] = await Promise.all([fetchTeacherSubmissions(), fetchHiddenSubmissionIds()]);
+      setFiles(data); setHiddenSubmissionIds(hiddenIds);
       showToast('Submissions synced successfully.', 'success');
-    } catch (err) {
-      setError(`Sync failed: ${err.message}`);
-    } finally {
-      setIsSyncing(false);
-    }
+    } catch (err) { setError(`Sync failed: ${err.message}`); }
+    finally { setIsSyncing(false); }
   }
 
   function requestSort(key) {
@@ -502,11 +474,8 @@ export function useTeacherDashboard(showToast) {
   }
 
   function clearFilters() {
-    setSelectedStudent('');
-    setSelectedSection('');
-    setSelectedTeamCode('');
-    setSelectedDocType('');
-    setSearchQuery('');
+    setSelectedStudent(''); setSelectedSection(''); setSelectedTeamCode('');
+    setSelectedDocType(''); setSearchQuery('');
   }
 
   // ── Analyze modal ─────────────────────────────────────────────────────────
@@ -516,35 +485,41 @@ export function useTeacherDashboard(showToast) {
       analysisAbortRef.current.abort();
       analysisAbortRef.current = null;
       setIsAnalyzing(false);
+      closeSse();
     }
     setSelectedFile(file);
     setAiResult('');
     setCustomRules('');
+    setAnalysisProgress({ currentStep: '', currentMessage: '', percent: 0, isRetrying: false });
     setIsAnalyzeOpen(true);
     loadAiRuntime();
   }
 
   function closeAnalyzeModal() {
-    if (analysisAbortRef.current) {
-      analysisAbortRef.current.abort();
-      analysisAbortRef.current = null;
-    }
+    if (analysisAbortRef.current) { analysisAbortRef.current.abort(); analysisAbortRef.current = null; }
+    closeSse();
     setIsAnalyzing(false);
     setAiResult('');
     setAiImages([]);
     setCustomRules('');
     setSelectedFile(null);
     setIsAnalyzeOpen(false);
+    setAnalysisProgress({ currentStep: '', currentMessage: '', percent: 0, isRetrying: false });
   }
 
   async function runAnalysis(modelName) {
     if (!selectedFile) return;
     if (analysisAbortRef.current && !analysisAbortRef.current.signal.aborted) return;
 
-    const controller = new AbortController();
+    const controller  = new AbortController();
     analysisAbortRef.current = controller;
     const fileToAnalyze      = selectedFile;
     const customInstructions = customRules;
+
+    // ── Generate sessionId and open SSE BEFORE calling analyze ───────────────
+    const sessionId = generateSessionId();
+    setAnalysisProgress({ currentStep: '', currentMessage: '', percent: 0, isRetrying: false });
+    openSse(sessionId);
 
     try {
       setIsAnalyzing(true);
@@ -558,6 +533,7 @@ export function useTeacherDashboard(showToast) {
         modelName,
         customInstructions,
         controller.signal,
+        sessionId,
       );
 
       if (controller.signal.aborted) return;
@@ -565,7 +541,6 @@ export function useTeacherDashboard(showToast) {
 
       setAiResult(data.analysis);
       setAiImages(data.images || []);
-      // History will update via real-time subscription — no manual reload needed
     } catch (err) {
       if (err.name === 'AbortError') return;
       setAiResult(`Error: ${err.message}`);
@@ -574,16 +549,14 @@ export function useTeacherDashboard(showToast) {
         setIsAnalyzing(false);
         analysisAbortRef.current = null;
       }
+      closeSse();
     }
   }
 
   // ── History modal ─────────────────────────────────────────────────────────
 
   async function startEditingHistory(item) {
-    if (!item?.id) {
-      showToast('Cannot load report: Missing ID', 'error');
-      return;
-    }
+    if (!item?.id) { showToast('Cannot load report: Missing ID', 'error'); return; }
     setIsLoadingDetails(true);
     setSelectedHistoryItem(item);
     try {
@@ -594,9 +567,7 @@ export function useTeacherDashboard(showToast) {
       setAiImages(full.extractedImages || []);
     } catch (err) {
       showToast(`Failed to load report details: ${err.message}`, 'error');
-    } finally {
-      setIsLoadingDetails(false);
-    }
+    } finally { setIsLoadingDetails(false); }
   }
 
   async function saveEditedHistory() {
@@ -608,9 +579,7 @@ export function useTeacherDashboard(showToast) {
       setHistoryLogs((prev) => prev.map((log) => (log.id === updated.id ? updated : log)));
       setIsEditingReport(false);
       showToast('Evaluation updated successfully.', 'success');
-    } catch (err) {
-      showToast(`Error updating report: ${err.message}`, 'error');
-    }
+    } catch (err) { showToast(`Error updating report: ${err.message}`, 'error'); }
   }
 
   async function sendHistoryToStudent() {
@@ -621,9 +590,7 @@ export function useTeacherDashboard(showToast) {
       setSelectedHistoryItem(updated);
       setHistoryLogs((prev) => prev.map((log) => (log.id === updated.id ? updated : log)));
       showToast('Result sent to Student Dashboard.', 'success');
-    } catch (err) {
-      showToast(`Error sending report: ${err.message}`, 'error');
-    }
+    } catch (err) { showToast(`Error sending report: ${err.message}`, 'error'); }
   }
 
   function closeHistoryModal() {
@@ -645,11 +612,8 @@ export function useTeacherDashboard(showToast) {
       await Promise.all(keys.map((key) => saveSetting(key, editedSettings[key])));
       showToast('All settings saved.', 'success');
       await loadSettings();
-    } catch (err) {
-      showToast(`Failed to save settings: ${err.message}`, 'error');
-    } finally {
-      setIsSavingAll(false);
-    }
+    } catch (err) { showToast(`Failed to save settings: ${err.message}`, 'error'); }
+    finally { setIsSavingAll(false); }
   }
 
   async function saveAiSettingsBatch(payload) {
@@ -659,11 +623,8 @@ export function useTeacherDashboard(showToast) {
       await saveMultipleSettings(payload);
       showToast('AI settings saved.', 'success');
       await loadSettings();
-    } catch (err) {
-      showToast(`Failed to save AI settings: ${err.message}`, 'error');
-    } finally {
-      setIsSavingAll(false);
-    }
+    } catch (err) { showToast(`Failed to save AI settings: ${err.message}`, 'error'); }
+    finally { setIsSavingAll(false); }
   }
 
   async function dangerClearAllHistory() {
@@ -671,94 +632,41 @@ export function useTeacherDashboard(showToast) {
       await clearAllHistory();
       setHistoryLogs([]);
       showToast('All evaluation history cleared.', 'success');
-    } catch (err) {
-      showToast(`Failed to clear history: ${err.message}`, 'error');
-    }
+    } catch (err) { showToast(`Failed to clear history: ${err.message}`, 'error'); }
   }
 
   // ── Exports ───────────────────────────────────────────────────────────────
 
   return {
-    currentView,
-    setCurrentView,
+    currentView, setCurrentView,
     files: sortedFiles,
-    customRules,
-    setCustomRules,
-    filterOptions,
-    submissionStats,
-    selectedStudent,
-    selectedSection,
-    selectedTeamCode,
-    selectedDocType,
-    searchQuery,
-    loading,
-    isSyncing,
-    analyzedFileIds,
-    error,
-    historyLogs: filteredHistoryLogs,
-    allHistoryCount,
-    reportDocTypeOptions,
-    reportFilterOptions,
-    reportSearchQuery,
-    reportStatusFilter,
-    reportDocTypeFilter,
-    reportSelectedStudent,
-    reportSelectedSection,
-    reportSelectedTeamCode,
+    customRules, setCustomRules,
+    filterOptions, submissionStats,
+    selectedStudent, selectedSection, selectedTeamCode, selectedDocType, searchQuery,
+    loading, isSyncing, analyzedFileIds, error,
+    historyLogs: filteredHistoryLogs, allHistoryCount,
+    reportDocTypeOptions, reportFilterOptions,
+    reportSearchQuery, reportStatusFilter, reportDocTypeFilter,
+    reportSelectedStudent, reportSelectedSection, reportSelectedTeamCode,
     loadingHistory,
-    settings,
-    loadingSettings,
-    aiRuntimeSettings,
-    editedSettings,
-    isSavingAll,
+    settings, loadingSettings, aiRuntimeSettings, editedSettings, isSavingAll,
     dirtyCount: Object.keys(editedSettings).length,
-    isAnalyzeOpen,
-    setIsAnalyzeOpen,
-    closeAnalyzeModal,
-    selectedFile,
-    aiResult,
-    aiImages,
-    isAnalyzing,
-    selectedHistoryItem,
-    isEditingReport,
-    setIsEditingReport,
-    editedReportText,
-    setEditedReportText,
-    editedTeacherFeedback,
-    setEditedTeacherFeedback,
+    isAnalyzeOpen, setIsAnalyzeOpen, closeAnalyzeModal,
+    selectedFile, aiResult, aiImages, isAnalyzing,
+    analysisProgress,
+    selectedHistoryItem, isEditingReport, setIsEditingReport,
+    editedReportText, setEditedReportText,
+    editedTeacherFeedback, setEditedTeacherFeedback,
     promptTemplates,
-    handleManualSync,
-    requestSort,
-    setSelectedStudent,
-    setSelectedSection,
-    setSelectedTeamCode,
-    setSelectedDocType,
-    setSearchQuery,
-    setReportSearchQuery,
-    setReportStatusFilter,
-    setReportDocTypeFilter,
-    setReportSelectedStudent,
-    setReportSelectedSection,
-    setReportSelectedTeamCode,
-    clearReportFilters,
-    clearFilters,
-    openAnalyzeModal,
-    runAnalysis,
-    loadHistory,
-    startEditingHistory,
-    saveEditedHistory,
-    sendHistoryToStudent,
-    closeHistoryModal,
-    handleSettingChange,
-    saveAiSettingsBatch,
-    saveAllSettings,
-    loadSettings,
-    deleteReport,
-    deleteSubmission,
-    restoreSelectedTrashItems,
-    safeEmptyAllTrashBins,
-    trashBinSummary,
-    hiddenSubmissionIds,
-    dangerClearAllHistory,
+    handleManualSync, requestSort,
+    setSelectedStudent, setSelectedSection, setSelectedTeamCode, setSelectedDocType, setSearchQuery,
+    setReportSearchQuery, setReportStatusFilter, setReportDocTypeFilter,
+    setReportSelectedStudent, setReportSelectedSection, setReportSelectedTeamCode,
+    clearReportFilters, clearFilters,
+    openAnalyzeModal, runAnalysis,
+    loadHistory, startEditingHistory, saveEditedHistory, sendHistoryToStudent, closeHistoryModal,
+    handleSettingChange, saveAiSettingsBatch, saveAllSettings, loadSettings,
+    deleteReport, deleteSubmission, restoreSelectedTrashItems, safeEmptyAllTrashBins,
+    trashBinSummary, hiddenSubmissionIds, dangerClearAllHistory,
   };
 }

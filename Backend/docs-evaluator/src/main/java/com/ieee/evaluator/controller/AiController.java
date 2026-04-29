@@ -6,7 +6,6 @@ import com.ieee.evaluator.repository.EvaluationHistoryRepository;
 import com.ieee.evaluator.service.AiService;
 
 import org.springframework.transaction.annotation.Transactional;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,16 +29,18 @@ public class AiController {
     @PostMapping("/analyze")
     public ResponseEntity<?> analyzeFile(@RequestBody Map<String, String> payload) {
         try {
-            String fileId             = payload.get("fileId")   == null ? null : payload.get("fileId").trim();
-            String fileName           = payload.get("fileName") == null ? null : payload.get("fileName").trim();
-            String model              = payload.get("model")    == null ? null : payload.get("model").trim();
+            String fileId             = payload.get("fileId")    == null ? null : payload.get("fileId").trim();
+            String fileName           = payload.get("fileName")  == null ? null : payload.get("fileName").trim();
+            String model              = payload.get("model")     == null ? null : payload.get("model").trim();
             String customInstructions = payload.get("customInstructions");
+            // Optional — null is fine if the frontend didn't open an SSE stream
+            String sessionId          = payload.get("sessionId");
 
             if (fileId == null || fileId.isBlank() || model == null || model.isBlank() || fileName == null || fileName.isBlank()) {
                 return ResponseEntity.badRequest().body("Missing fileId, fileName, or model");
             }
 
-            AnalysisResultDTO result = aiService.analyzeDocument(fileId, fileName, model, customInstructions);
+            AnalysisResultDTO result = aiService.analyzeDocument(fileId, fileName, model, customInstructions, sessionId);
             return ResponseEntity.ok(result);
 
         } catch (IllegalStateException e) {
@@ -57,7 +58,6 @@ public class AiController {
     @GetMapping("/history")
     public ResponseEntity<?> getHistory() {
         try {
-            // Only returns records where is_deleted = false
             return ResponseEntity.ok(historyRepository.findAllSummaries());
         } catch (Exception e) {
             e.printStackTrace();
@@ -114,7 +114,7 @@ public class AiController {
         }
     }
 
-    // ── DELETE /api/ai/history/{id} — soft delete ─────────────────────────────
+    // ── DELETE /api/ai/history/{id} ───────────────────────────────────────────
 
     @DeleteMapping("/history/{id}")
     public ResponseEntity<?> deleteHistoryItem(@PathVariable Long id) {
@@ -165,9 +165,7 @@ public class AiController {
         }
     }
 
-    // ── DELETE /api/ai/history/all — danger zone clear ────────────────────────
-    // Deletes ALL rows from evaluation_history and evaluation_images.
-    // CASCADE DELETE on the foreign key handles evaluation_images automatically.
+    // ── DELETE /api/ai/history/all ────────────────────────────────────────────
 
     @DeleteMapping("/history/all")
     public ResponseEntity<?> clearAllHistory() {
