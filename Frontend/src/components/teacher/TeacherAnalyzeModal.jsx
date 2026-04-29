@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import AppModal from '../common/AppModal';
 import EvaluationReport from '../common/EvaluationReport';
+import AnalysisProgress from '../common/AnalysisProgress';
+import '../../styles/components/analysis-progress.css';
 
 function TeacherAnalyzeModal({
   isOpen,
@@ -9,6 +11,7 @@ function TeacherAnalyzeModal({
   aiResult,
   aiImages = [],
   isAnalyzing,
+  analysisProgress = { currentStep: '', currentMessage: '', percent: 0, isRetrying: false },
   onClose,
   onRun,
   aiRuntimeSettings,
@@ -18,26 +21,18 @@ function TeacherAnalyzeModal({
   hasPreviousEvaluation = false,
   promptTemplates = [],
 }) {
-
   const hasResult = Boolean(aiResult) && !isAnalyzing;
   const hasHistory = Boolean(hasPreviousEvaluation);
 
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
-  // Reset template selection when modal opens for a new file
   useEffect(() => {
-    if (isOpen) {
-      setSelectedTemplateId('');
-    }
+    if (isOpen) setSelectedTemplateId('');
   }, [isOpen, file?.id]);
 
   const providerOptions = useMemo(() => {
-    if (aiRuntimeSettings?.providers?.length) {
-      return aiRuntimeSettings.providers;
-    }
-    return [
-      { id: 'openai', label: 'OpenAI', selectedModel: '', apiKeyConfigured: false },
-    ];
+    if (aiRuntimeSettings?.providers?.length) return aiRuntimeSettings.providers;
+    return [{ id: 'openai', label: 'OpenAI', selectedModel: '', apiKeyConfigured: false }];
   }, [aiRuntimeSettings]);
 
   const activeProviderId = aiRuntimeSettings?.activeProvider || providerOptions[0]?.id || 'openai';
@@ -67,19 +62,9 @@ function TeacherAnalyzeModal({
   function handleTemplateChange(e) {
     const id = e.target.value;
     setSelectedTemplateId(id);
-
-    if (!id) {
-      // "No template" selected — clear the field so professor starts fresh
-      setCustomRules('');
-      return;
-    }
-
+    if (!id) { setCustomRules(''); return; }
     const template = promptTemplates.find((t) => String(t.id) === id);
-    if (template) {
-      // Populate the textarea with the template content.
-      // The professor can still edit it freely — this does NOT save back to the template.
-      setCustomRules(template.content);
-    }
+    if (template) setCustomRules(template.content);
   }
 
   function handleEvaluate() {
@@ -92,7 +77,7 @@ function TeacherAnalyzeModal({
   const footer = isAnalyzing ? null : (
     <div className="analyze-modal-footer">
       <div className="modal-actions modal-actions--end">
-        {hasHistory && (
+        {(hasHistory || hasResult) && (
           <button className="btn btn--secondary" onClick={onViewHistory} disabled={isAnalyzing}>
             View History
           </button>
@@ -113,6 +98,7 @@ function TeacherAnalyzeModal({
       containerClassName="teacher-analyze-modal"
       footer={footer}
     >
+      {/* ── Pre-run state ── */}
       {!isAnalyzing && !hasResult && (
         <p className="muted" style={{ marginBottom: '1rem' }}>
           Run evaluation to generate an AI report for this submission.
@@ -125,10 +111,9 @@ function TeacherAnalyzeModal({
         </p>
       )}
 
+      {/* ── Custom rules / template selector (hidden while analyzing) ── */}
       {!isAnalyzing && (
         <div className="custom-rules-group">
-
-          {/* ── Template selector ── */}
           {promptTemplates.length > 0 && (
             <div style={{ marginBottom: '0.65rem' }}>
               <label htmlFor="template-select" className="custom-rules-label">
@@ -143,15 +128,12 @@ function TeacherAnalyzeModal({
               >
                 <option value="">— Select a template —</option>
                 {promptTemplates.map((t) => (
-                  <option key={t.id} value={String(t.id)}>
-                    {t.name}
-                  </option>
+                  <option key={t.id} value={String(t.id)}>{t.name}</option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* ── Custom instructions textarea ── */}
           <label htmlFor="custom-rules" className="custom-rules-label">
             Professor Directives (Optional)
           </label>
@@ -162,8 +144,6 @@ function TeacherAnalyzeModal({
             value={customRules}
             onChange={(e) => {
               setCustomRules(e.target.value);
-              // If the professor edits the textarea manually, deselect the template
-              // so it's clear the content is now a custom draft, not the saved template.
               if (selectedTemplateId) setSelectedTemplateId('');
             }}
             disabled={isAnalyzing}
@@ -172,35 +152,40 @@ function TeacherAnalyzeModal({
         </div>
       )}
 
+      {/* ── Animated progress (replaces old spinner) ── */}
       {isAnalyzing && (
-        <div className="analyze-loading" role="status" aria-live="polite">
-          <div className="analyze-loading__spinner" aria-hidden="true">
-            <span className="analyze-loading__ring" />
-            <span className="analyze-loading__ring analyze-loading__ring--delay" />
-          </div>
-          <p className="analyze-loading__title">Running AI evaluation...</p>
-          <p className="analyze-loading__subtitle">
-            Extracting text and generating analysis for this submission.
+        <AnalysisProgress
+          currentStep={analysisProgress.currentStep}
+          currentMessage={analysisProgress.currentMessage}
+          percent={analysisProgress.percent}
+          isRetrying={analysisProgress.isRetrying}
+        />
+      )}
+
+      {/* ── Permission / access error card ── */}
+      {hasResult && (aiResult.startsWith('PERMISSION DENIED') || aiResult.startsWith('FILE NOT FOUND')) && (
+        <div style={{
+          padding: '1rem 1.2rem',
+          borderRadius: '10px',
+          border: '1px solid color-mix(in srgb, #ef4444 30%, var(--line-soft))',
+          background: 'color-mix(in srgb, #ef4444 8%, var(--bg-surface))',
+          color: 'var(--text-main)',
+          marginBottom: '0.75rem',
+        }}>
+          <p style={{ margin: '0 0 0.4rem', fontWeight: 700, color: '#dc2626', fontSize: '0.88rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Access Error
           </p>
-          <div style={{
-            marginTop: '1.5rem',
-            padding: '1rem',
-            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-            color: '#d97706',
-            borderRadius: '8px',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            fontSize: '0.85rem',
-            textAlign: 'center',
-          }}>
-            <strong style={{ display: 'block', marginBottom: '4px' }}>
-              PLEASE DO NOT REFRESH THE PAGE.
-            </strong>
-            Heavy documents with complex diagrams can take up to 5 minutes to process.
-          </div>
+          <p style={{ margin: 0, fontSize: '0.92rem', lineHeight: 1.6 }}>{aiResult}</p>
+          <p style={{ margin: '0.75rem 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            To fix this: open the document in Google Drive, click <strong>Share</strong>, set access to <strong>Anyone with the link</strong>, and change the role to <strong>Editor</strong>.
+          </p>
         </div>
       )}
 
-      {hasResult && <EvaluationReport text={aiResult} images={aiImages} />}
+      {/* ── Result ── */}
+      {hasResult && !aiResult.startsWith('PERMISSION DENIED') && !aiResult.startsWith('FILE NOT FOUND') && (
+        <EvaluationReport text={aiResult} images={aiImages} />
+      )}
     </AppModal>
   );
 }

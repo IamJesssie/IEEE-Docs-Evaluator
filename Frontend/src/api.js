@@ -30,19 +30,21 @@ export const syncSubmissionsWithBackend = async () => {
 };
 
 /**
- * AI: Triggers Google Doc text extraction and AI analysis
+ * AI: Triggers Google Doc text extraction and AI analysis.
+ * sessionId is optional — pass it when an SSE progress stream is open.
  */
-export const analyzeDocumentWithAI = async (fileId, fileName, model, customInstructions, signal) => {
+export const analyzeDocumentWithAI = async (fileId, fileName, model, customInstructions, signal, sessionId) => {
     const response = await fetch(`${API_BASE_URL}/ai/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            fileId, 
-            fileName, 
+        body: JSON.stringify({
+            fileId,
+            fileName,
             model,
-            customInstructions
+            customInstructions,
+            sessionId: sessionId || undefined,
         }),
-        signal,          
+        signal,
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Analysis failed.');
@@ -236,5 +238,32 @@ export const clearAllEvaluationHistory = async () => {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to clear history.');
+    return data;
+};
+
+// ── Annotations ───────────────────────────────────────────────────────────────
+export const getAnnotations = async (historyId) => {
+    const response = await fetch(`${API_BASE_URL}/ai/history/${historyId}/annotations`);
+    if (!response.ok) throw new Error('Failed to fetch annotations.');
+    return await response.json();
+};
+
+export const createAnnotation = async (historyId, selectedText, comment, startOffset, endOffset) => {
+    const response = await fetch(`${API_BASE_URL}/ai/history/${historyId}/annotations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedText, comment, startOffset, endOffset }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to create annotation.');
+    return data;
+};
+
+export const deleteAnnotation = async (annotationId) => {
+    const response = await fetch(`${API_BASE_URL}/ai/annotations/${annotationId}`, {
+        method: 'DELETE',
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to delete annotation.');
     return data;
 };

@@ -1,10 +1,15 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useMemo, useState } from 'react';
 import AppModal from '../common/AppModal';
+import AdvancedSettingsModal from './AdvancedSettingsModal';
 import './TeacherSettingsPanel.css';
 
 const CATEGORY_ORDER = ['AI', 'GOOGLE', 'MAPPING'];
-const CATEGORY_LABELS = { AI: 'AI Keys', GOOGLE: 'Google Integration', MAPPING: 'Submission Columns' };
+const CATEGORY_LABELS = {
+  AI:      'AI Keys',
+  GOOGLE:  'Google Integration',
+  MAPPING: 'Submission Columns',
+};
 
 const AI_MANAGED_KEYS = new Set([
   'ACTIVE_AI_PROVIDER',
@@ -256,8 +261,15 @@ export default function TeacherSettingsPanel({
   if (loading) return <div className="ssp-loading">Loading configuration...</div>;
 
   return (
-    <div className="ssp-root">
+   <div className="ssp-root">
       <div className="ssp-actions-bar">
+        <AdvancedSettingsModal
+          settings={settings}
+          editedSettings={editedSettings}
+          onSettingChange={onSettingChange}
+          onSave={onSave}
+          isSaving={isSavingAll}
+        />
         <button className="ssp-btn ssp-btn--ghost" onClick={onDiscard}>Discard Changes</button>
         <button className="ssp-btn ssp-btn--primary" onClick={onSave} disabled={isSavingAll || !dirtyCount}>
           {saveAllLabel}

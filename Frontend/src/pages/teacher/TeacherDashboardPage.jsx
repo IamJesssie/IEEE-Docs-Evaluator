@@ -220,6 +220,7 @@ function TeacherDashboardPage() {
         aiResult={vm.aiResult}
         aiImages={vm.aiImages}
         isAnalyzing={vm.isAnalyzing}
+        analysisProgress={vm.analysisProgress}
         hasPreviousEvaluation={Boolean(vm.selectedFile?.id && vm.analyzedFileIds?.has(vm.selectedFile.id))}
         aiRuntimeSettings={vm.aiRuntimeSettings}
         customRules={vm.customRules}
