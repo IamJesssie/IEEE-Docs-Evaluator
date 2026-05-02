@@ -37,6 +37,7 @@ function generateSessionId() {
 }
 
 export function useTeacherDashboard(showToast) {
+  const TRASHED_REPORTS_KEY = 'ieee-docs-trashed-report-ids';
   const [currentView, setCurrentView] = useState('submissions');
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +79,14 @@ export function useTeacherDashboard(showToast) {
   const [reportSelectedTeamCode, setReportSelectedTeamCode] = useState('');
 
   const [hiddenSubmissionIds, setHiddenSubmissionIds] = useState([]);
+  const [trashedReportIds, setTrashedReportIds] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(TRASHED_REPORTS_KEY) || '[]');
+      return Array.isArray(stored) ? stored : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [settings, setSettings] = useState([]);
   const [editedSettings, setEditedSettings] = useState({});
@@ -386,6 +395,7 @@ export function useTeacherDashboard(showToast) {
   const filteredHistoryLogs = useMemo(() => {
     const query = reportSearchQuery.trim().toLowerCase();
     return historyLogs.filter((log) => {
+      if (trashedReportIds.includes(log.id)) return false;
       const docType = extractSubmissionMeta(log.fileName).documentType;
       const meta    = extractSubmissionMeta(log.fileName);
       if (reportStatusFilter === 'sent'    && !log.isSent) return false;
@@ -401,7 +411,7 @@ export function useTeacherDashboard(showToast) {
       }
       return true;
     });
-  }, [historyLogs, reportSearchQuery, reportStatusFilter, reportDocTypeFilter, reportSelectedStudent, reportSelectedSection, reportSelectedTeamCode]);
+  }, [historyLogs, trashedReportIds, reportSearchQuery, reportStatusFilter, reportDocTypeFilter, reportSelectedStudent, reportSelectedSection, reportSelectedTeamCode]);
 
   const allHistoryCount = historyLogs.length;
 
@@ -411,14 +421,27 @@ export function useTeacherDashboard(showToast) {
     const trashedSubmissions = files
       .filter((item) => hiddenSubmissionIds.includes(item.id))
       .map((item) => ({ id: item.id, kind: 'submission', label: item.name, meta: 'Student Submission' }));
-    return { submissionCount: trashedSubmissions.length, reportCount: 0, trashedSubmissions, trashedReports: [], trashedItems: trashedSubmissions };
-  }, [files, hiddenSubmissionIds]);
+    const trashedReports = historyLogs
+      .filter((item) => trashedReportIds.includes(item.id))
+      .map((item) => ({ id: item.id, kind: 'report', label: item.fileName, meta: 'AI Report', date: item.evaluatedAt }));
+    return {
+      submissionCount: trashedSubmissions.length,
+      reportCount: trashedReports.length,
+      trashedSubmissions,
+      trashedReports,
+      trashedItems: [...trashedReports, ...trashedSubmissions],
+    };
+  }, [files, hiddenSubmissionIds, historyLogs, trashedReportIds]);
 
   async function deleteReport(reportId) {
     try {
-      await softDeleteReport(reportId);
-      setHistoryLogs((prev) => prev.filter((log) => log.id !== reportId));
-      showToast('Report deleted.', 'success');
+      setTrashedReportIds((prev) => {
+        if (prev.includes(reportId)) return prev;
+        const next = [reportId, ...prev];
+        localStorage.setItem(TRASHED_REPORTS_KEY, JSON.stringify(next));
+        return next;
+      });
+      showToast('Report moved to trash.', 'success');
     } catch (err) { showToast(`Failed to delete report: ${err.message}`, 'error'); }
   }
 
@@ -434,18 +457,42 @@ export function useTeacherDashboard(showToast) {
     const items = selectedItems.filter(Boolean);
     if (!items.length) { showToast('Select one or more trashed items to restore.', 'success'); return; }
     try {
-      await Promise.all(items.map((item) => item.kind === 'submission' ? restoreSubmission(item.id) : restoreReport(item.id)));
-      const restoredIds = items.filter((i) => i.kind === 'submission').map((i) => i.id);
-      setHiddenSubmissionIds((prev) => prev.filter((id) => !restoredIds.includes(id)));
+      const submissionsToRestore = items.filter((item) => item.kind === 'submission');
+      if (submissionsToRestore.length) {
+        await Promise.all(submissionsToRestore.map((item) => restoreSubmission(item.id)));
+      }
+      const restoredSubmissionIds = submissionsToRestore.map((item) => item.id);
+      const restoredReportIds = items.filter((i) => i.kind === 'report').map((i) => i.id);
+      setHiddenSubmissionIds((prev) => prev.filter((id) => !restoredSubmissionIds.includes(id)));
+      if (restoredReportIds.length) {
+        setTrashedReportIds((prev) => {
+          const next = prev.filter((id) => !restoredReportIds.includes(id));
+          localStorage.setItem(TRASHED_REPORTS_KEY, JSON.stringify(next));
+          return next;
+        });
+      }
       showToast(`Restored ${items.length} item(s).`, 'success');
     } catch (err) { showToast(`Failed to restore items: ${err.message}`, 'error'); }
   }
 
   async function safeEmptyAllTrashBins() {
-    if (!hiddenSubmissionIds.length) { showToast('Trash bins are already empty.', 'success'); return; }
+    if (!hiddenSubmissionIds.length && !trashedReportIds.length) { showToast('Trash bins are already empty.', 'success'); return; }
     try {
-      await Promise.all(hiddenSubmissionIds.map((id) => restoreSubmission(id)));
+      const trashDeletes = trashedReportIds.length
+        ? Promise.all(trashedReportIds.map((id) => softDeleteReport(id)))
+        : Promise.resolve();
+      const restoreSubmissions = hiddenSubmissionIds.length
+        ? Promise.all(hiddenSubmissionIds.map((id) => restoreSubmission(id)))
+        : Promise.resolve();
+      await Promise.all([trashDeletes, restoreSubmissions]);
       setHiddenSubmissionIds([]);
+      setTrashedReportIds(() => {
+        localStorage.setItem(TRASHED_REPORTS_KEY, JSON.stringify([]));
+        return [];
+      });
+      if (trashedReportIds.length) {
+        setHistoryLogs((prev) => prev.filter((log) => !trashedReportIds.includes(log.id)));
+      }
       showToast('Trash cleared.', 'success');
     } catch (err) { showToast(`Failed to empty trash: ${err.message}`, 'error'); }
   }
