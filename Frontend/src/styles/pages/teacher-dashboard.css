@@ -40,6 +40,35 @@
   flex: 1;
 }
 
+.teacher-sidebar__theme-toggle {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.55rem;
+  margin-top: 0.3rem;
+  border-color: var(--sidebar-border);
+  color: var(--sidebar-text);
+  background: transparent;
+  padding: 0.6rem 0.75rem;
+}
+
+.teacher-sidebar__theme-toggle:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.teacher-sidebar__theme-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.teacher-sidebar__theme-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .teacher-sidebar__signout {
   width: 100%;
   text-align: center;

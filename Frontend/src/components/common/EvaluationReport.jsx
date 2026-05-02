@@ -319,7 +319,7 @@ const DiagramCard = memo(function DiagramCard({ critique, onImageClick, annotati
                     {renderInline(critique.type, onImageClick, annotationMap, canDelete, onDelete)}
                 </h4>
             </div>
-            {critique.summary && <p style={{ margin: '0 0 0.75rem 0', fontStyle: 'italic', color: 'var(--text-muted)' }}>{renderInline(critique.summary, onImageClick, annotationMap, canDelete, onDelete)}</p>}
+            {critique.summary && <p style={{ margin: '0 0 0.75rem 0', fontStyle: 'italic', color: 'var(--text-main)' }}>{renderInline(critique.summary, onImageClick, annotationMap, canDelete, onDelete)}</p>}
             {critique.details.length > 0 && (
                 <ul style={{ margin: 0, paddingLeft: '1.2rem', color: 'var(--text-main)' }}>
                     {critique.details.map((detail, dIdx) => {

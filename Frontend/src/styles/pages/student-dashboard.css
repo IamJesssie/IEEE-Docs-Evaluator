@@ -36,6 +36,35 @@
   flex: 1;
 }
 
+.student-sidebar__theme-toggle {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.55rem;
+  margin: 0.6rem 0 0.6rem;
+  border-color: var(--sidebar-border);
+  color: var(--sidebar-text);
+  background: transparent;
+  padding: 0.6rem 0.75rem;
+}
+
+.student-sidebar__theme-toggle:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.student-sidebar__theme-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.student-sidebar__theme-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .student-sidebar__signout {
   margin-top: 0.8rem;
 }
