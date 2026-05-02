@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -21,9 +20,9 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AiService {
 
-    private static final String KEY_ACTIVE_PROVIDER           = "ACTIVE_AI_PROVIDER";
-    private static final String DEFAULT_PROVIDER              = "openai";
-    private static final int    MAX_PAGES_TO_RENDER           = 999;
+    private static final String KEY_ACTIVE_PROVIDER                = "ACTIVE_AI_PROVIDER";
+    private static final String DEFAULT_PROVIDER                   = "openai";
+    private static final int    MAX_PAGES_TO_RENDER                = 999;
     private static final int    DEFAULT_ANALYZE_MAX_ATTEMPTS       = 8;
     private static final long   DEFAULT_RETRY_INITIAL_DELAY_MIN_MS = 2_000;
     private static final long   DEFAULT_RETRY_INITIAL_DELAY_MAX_MS = 5_000;
@@ -44,7 +43,7 @@ public class AiService {
             ProgressEmitter progressEmitter,
             List<AiProvider> providerList) {
 
-        this.docsService      = docsService;
+        this.docsService       = docsService;
         this.historyRepository = historyRepository;
         this.settingsService   = settingsService;
         this.progressEmitter   = progressEmitter;
@@ -110,12 +109,11 @@ public class AiService {
             String fileId, String fileName, AiProvider provider,
             String customInstructions, String sessionId) throws Exception {
 
-        // ── Read retry config fresh from DB on every call ─────────────────────
-        int  maxAttempts     = readInt("ANALYZE_MAX_ATTEMPTS",       DEFAULT_ANALYZE_MAX_ATTEMPTS);
-        long delayMinMs      = readLong("RETRY_INITIAL_DELAY_MIN_MS", DEFAULT_RETRY_INITIAL_DELAY_MIN_MS);
-        long delayMaxMs      = readLong("RETRY_INITIAL_DELAY_MAX_MS", DEFAULT_RETRY_INITIAL_DELAY_MAX_MS);
-        long backoffMaxMs    = readLong("RETRY_BACKOFF_MAX_DELAY_MS", DEFAULT_RETRY_BACKOFF_MAX_DELAY_MS);
-        long timeLimitMs     = readLong("RETRY_TIME_LIMIT_MS",        DEFAULT_RETRY_TIME_LIMIT_MS);
+        int  maxAttempts  = readInt("ANALYZE_MAX_ATTEMPTS",       DEFAULT_ANALYZE_MAX_ATTEMPTS);
+        long delayMinMs   = readLong("RETRY_INITIAL_DELAY_MIN_MS", DEFAULT_RETRY_INITIAL_DELAY_MIN_MS);
+        long delayMaxMs   = readLong("RETRY_INITIAL_DELAY_MAX_MS", DEFAULT_RETRY_INITIAL_DELAY_MAX_MS);
+        long backoffMaxMs = readLong("RETRY_BACKOFF_MAX_DELAY_MS", DEFAULT_RETRY_BACKOFF_MAX_DELAY_MS);
+        long timeLimitMs  = readLong("RETRY_TIME_LIMIT_MS",        DEFAULT_RETRY_TIME_LIMIT_MS);
 
         Exception lastError = null;
         long startedAt = System.currentTimeMillis();
@@ -123,7 +121,7 @@ public class AiService {
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             if (attempt > 1) {
                 long delayMs = computeRetryDelayWithJitterMs(attempt, delayMinMs, delayMaxMs, backoffMaxMs);
-                long elapsed  = System.currentTimeMillis() - startedAt;
+                long elapsed = System.currentTimeMillis() - startedAt;
                 if (elapsed + delayMs > timeLimitMs) {
                     throw new IllegalStateException(
                         "EVALUATION ERROR: Retry time limit exceeded. Please try again.", lastError);
@@ -194,12 +192,22 @@ public class AiService {
         emit(sessionId, "SENDING_TO_AI",
             "Sending " + docData.images().size() + " page image(s) + text to AI model", 70);
 
-        String analysis = provider.analyze(
-            docData.text(), docData.images(), previousFindings, customInstructions);
+        // Use fileName-aware path if the provider is OpenAI
+        String analysis;
+        if (provider instanceof OpenAiProvider openAiProvider) {
+            analysis = openAiProvider.analyzeWithFileName(
+                fileName,
+                docData.text(),
+                docData.images(),
+                previousFindings,
+                customInstructions
+            );
+        } else {
+            analysis = provider.analyze(
+                docData.text(), docData.images(), previousFindings, customInstructions);
+        }
 
         // ── Step: PROCESSING ──────────────────────────────────────────────────
-        // (This event fires right after the AI call returns — meaning the model
-        //  has responded and we're about to hand the result back.)
         emit(sessionId, "PROCESSING", "AI response received — preparing result", 88);
 
         return new AnalysisResultDTO(analysis, docData.images());
@@ -213,8 +221,8 @@ public class AiService {
     }
 
     private long computeRetryDelayWithJitterMs(int attempt, long delayMinMs, long delayMaxMs, long backoffMaxMs) {
-        int retryNumber  = attempt - 1;
-        int growthPower  = Math.min(Math.max(0, retryNumber - 1), 20);
+        int retryNumber            = attempt - 1;
+        int growthPower            = Math.min(Math.max(0, retryNumber - 1), 20);
         long exponentialUpperBound = delayMaxMs * (1L << growthPower);
         long jitterUpperBound      = Math.min(exponentialUpperBound, backoffMaxMs);
         long jitterLowerBound      = Math.min(delayMinMs, jitterUpperBound);
@@ -332,7 +340,6 @@ public class AiService {
         try {
             LocalDateTime now = LocalDateTime.now();
 
-            // Always create a new row — every evaluation is a new version.
             EvaluationHistory history = new EvaluationHistory();
             history.setFileId(fileId);
             history.setFileName(fileName);
