@@ -38,14 +38,24 @@ public class DocumentReviewPromptFactory {
         this.stdPromptService    = stdPromptService;
     }
 
-    public String buildPrompt(String documentContent, String previousEvaluation, String customInstructions) {
-        DocumentType      type       = detectorService.detect(documentContent);
-        String            docTypeKey = type.name();
+    /**
+     * Returns null if the document type is OUT_OF_SCOPE.
+     * Callers must check for null and return the out-of-scope error message
+     * instead of sending to the AI.
+     */
+    public String buildPrompt(String fileName, String documentContent, String previousEvaluation, String customInstructions) {
+        DocumentType type = detectorService.detect(fileName, documentContent);
 
-        // ── Load the per-doc-type profile (used for both rubric/diagram AND step overrides) ──
+        if (type == DocumentType.OUT_OF_SCOPE) {
+            return null;
+        }
+
+        String docTypeKey = type.name();
+
+        // ── Load the per-doc-type profile ─────────────────────────────────────
         ProfessorDocProfile docProfile = profileService.findByDocType(docTypeKey);
 
-        // ── Steps 2 & 3: rubric/diagram (existing per-doc-type system) ────────
+        // ── Steps 2 & 3: rubric/diagram ───────────────────────────────────────
         String rubricSection  = resolveRubric(type, docTypeKey);
         String diagramSection = resolveDiagram(type, docTypeKey);
 
@@ -78,6 +88,12 @@ public class DocumentReviewPromptFactory {
                 step6OutputFormat);
     }
 
+    // ── Keep old signature for any existing callers ───────────────────────────
+
+    public String buildPrompt(String documentContent, String previousEvaluation, String customInstructions) {
+        return buildPrompt("", documentContent, previousEvaluation, customInstructions);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private String resolve(PromptStepKey key, ProfessorDocProfile docProfile, String hardcodedDefault) {
@@ -88,14 +104,11 @@ public class DocumentReviewPromptFactory {
         String override = profileService.getRubricOverride(docTypeKey);
         if (override != null) return override;
         return switch (type) {
-            case SRS     -> srsPromptService.rubricSection();
-            case SDD     -> sddPromptService.rubricSection();
-            case SPMP    -> spmpPromptService.rubricSection();
-            case STD     -> stdPromptService.rubricSection();
-            case UNKNOWN -> """
-                If document type is unknown, evaluate against the closest matching IEEE software document structure,
-                but clearly identify missing sections and keep scoring strict.
-                """;
+            case SRS  -> srsPromptService.rubricSection();
+            case SDD  -> sddPromptService.rubricSection();
+            case SPMP -> spmpPromptService.rubricSection();
+            case STD  -> stdPromptService.rubricSection();
+            default   -> "";
         };
     }
 
@@ -103,18 +116,11 @@ public class DocumentReviewPromptFactory {
         String override = profileService.getDiagramOverride(docTypeKey);
         if (override != null) return override;
         return switch (type) {
-            case SRS     -> srsPromptService.diagramAnalysisSection();
-            case SDD     -> sddPromptService.diagramAnalysisSection();
-            case SPMP    -> spmpPromptService.diagramAnalysisSection();
-            case STD     -> stdPromptService.diagramAnalysisSection();
-            case UNKNOWN -> """
-                For EVERY diagram, figure, or table visible in the provided page images, identify
-                the diagram type, analyze the notation used, evaluate correctness against the closest
-                matching IEEE document standard, and report findings under "Diagram Analysis".
-                Use the format: * [IMG-X] - <Diagram Type>: with sub-bullets for Notation observed,
-                Correctness, Issues, and Alignment.
-                If no diagrams are detected, output exactly "None detected."
-                """;
+            case SRS  -> srsPromptService.diagramAnalysisSection();
+            case SDD  -> sddPromptService.diagramAnalysisSection();
+            case SPMP -> spmpPromptService.diagramAnalysisSection();
+            case STD  -> stdPromptService.diagramAnalysisSection();
+            default   -> "";
         };
     }
 }

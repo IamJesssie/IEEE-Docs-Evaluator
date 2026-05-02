@@ -18,7 +18,7 @@ import java.util.Map;
  * OpenAI provider.
  *
  * All configuration (API key, model) is read from the system_settings table
- * at request time via DynamicConfigService — no restart needed after changes.
+ * at request time via SystemSettingService — no restart needed after changes.
  */
 @Service
 @Slf4j
@@ -29,13 +29,18 @@ public class OpenAiProvider implements AiProvider {
     private static final String KEY_MODEL   = "OPENAI_MODEL";
 
     // ── Endpoint ──────────────────────────────────────────────────────────────
-    private static final String API_URL = "https://api.openai.com/v1/chat/completions";
+    private static final String API_URL       = "https://api.openai.com/v1/chat/completions";
     private static final String DEFAULT_MODEL = "gpt-4o-mini";
 
-    private final SystemSettingService settingsService;
-    private final RestTemplate         restTemplate;
+    // ── Out of scope error message ────────────────────────────────────────────
+    private static final String OUT_OF_SCOPE_ERROR =
+        "EVALUATION ERROR: This document does not appear to be an SRS, SDD, SPMP, or STD. " +
+        "Out-of-scope documents cannot be evaluated.";
+
+    private final SystemSettingService        settingsService;
+    private final RestTemplate                restTemplate;
     private final DocumentReviewPromptFactory promptFactory;
-    private final ObjectMapper         objectMapper = new ObjectMapper();
+    private final ObjectMapper                objectMapper = new ObjectMapper();
 
     public OpenAiProvider(
         SystemSettingService settingsService,
@@ -43,8 +48,8 @@ public class OpenAiProvider implements AiProvider {
         @Qualifier("aiRestTemplate") RestTemplate restTemplate
     ) {
         this.settingsService = settingsService;
-        this.promptFactory = promptFactory;
-        this.restTemplate = restTemplate;
+        this.promptFactory   = promptFactory;
+        this.restTemplate    = restTemplate;
     }
 
     // ── AiProvider ────────────────────────────────────────────────────────────
@@ -71,7 +76,18 @@ public class OpenAiProvider implements AiProvider {
 
     @Override
     public String analyze(String text, List<String> base64Images, String previousEvaluation, String customInstructions) {
-        // Read config fresh on every call — enables zero-restart updates.
+        return analyzeWithFileName("", text, base64Images, previousEvaluation, customInstructions);
+    }
+
+    // ── fileName-aware path — called directly from AiService ─────────────────
+
+    public String analyzeWithFileName(
+            String fileName,
+            String text,
+            List<String> base64Images,
+            String previousEvaluation,
+            String customInstructions) {
+
         String apiKey = settingsService.getValueOrNull(KEY_API_KEY);
         String model  = settingsService.getValueOrNull(KEY_MODEL);
 
@@ -84,7 +100,13 @@ public class OpenAiProvider implements AiProvider {
         }
 
         try {
-            return callOpenAi(apiKey.trim(), model.trim(), text, base64Images, previousEvaluation, customInstructions);
+            String prompt = promptFactory.buildPrompt(fileName, text, previousEvaluation, customInstructions);
+
+            if (prompt == null) {
+                return OUT_OF_SCOPE_ERROR;
+            }
+
+            return callOpenAi(apiKey.trim(), model.trim(), prompt, base64Images);
         } catch (HttpClientErrorException e) {
             return handleHttpError(e, "OpenAI");
         } catch (Exception e) {
@@ -95,10 +117,8 @@ public class OpenAiProvider implements AiProvider {
 
     // ── Internal helpers ──────────────────────────────────────────────────────
 
-    private String callOpenAi(String apiKey, String model, String documentText, List<String> base64Images, String previousEvaluation, String customInstructions)
+    private String callOpenAi(String apiKey, String model, String prompt, List<String> base64Images)
             throws com.fasterxml.jackson.core.JsonProcessingException {
-
-        String prompt = promptFactory.buildPrompt(documentText, previousEvaluation, customInstructions);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -110,12 +130,8 @@ public class OpenAiProvider implements AiProvider {
         if (base64Images != null) {
             for (int i = 0; i < base64Images.size(); i++) {
                 String image = base64Images.get(i);
-                if (isBlank(image)) {
-                    continue;
-                }
+                if (isBlank(image)) continue;
 
-                // TRUE page number: i+1 always equals the actual document page number
-                // because all pages are rendered in order with no filtering or skipping.
                 int pageNumber = i + 1;
                 contentParts.add(Map.of(
                     "type", "text",
@@ -139,10 +155,10 @@ public class OpenAiProvider implements AiProvider {
 
         JsonNode root = objectMapper.readTree(response.getBody());
         return root.path("choices")
-               .get(0)
-               .path("message")
-               .path("content")
-               .asText();
+                   .get(0)
+                   .path("message")
+                   .path("content")
+                   .asText();
     }
 
     private String handleHttpError(HttpClientErrorException e, String provider) {
