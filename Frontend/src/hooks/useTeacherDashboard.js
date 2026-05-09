@@ -569,7 +569,6 @@ export function useTeacherDashboard(showToast) {
     const fileToAnalyze      = selectedFile;
     const customInstructions = customRules;
 
-    // ── Generate sessionId and open SSE BEFORE calling analyze ───────────────
     const sessionId = generateSessionId();
     setAnalysisProgress({ currentStep: '', currentMessage: '', percent: 0, isRetrying: false });
     openSse(sessionId);
@@ -592,11 +591,28 @@ export function useTeacherDashboard(showToast) {
       if (controller.signal.aborted) return;
       if (!isAnalyzeOpenRef.current || selectedFileRef.current?.id !== fileToAnalyze.id) return;
 
-      setAiResult(data.analysis);
-      setAiImages(data.images || []);
+      // CRITICAL FIX 1: Catch "soft errors" where the backend returns 200 OK but 
+      // the AI provider embedded an EVALUATION ERROR in the text (e.g. invalid model name)
+      if (data.analysis && data.analysis.startsWith('EVALUATION ERROR')) {
+        showToast(data.analysis, 'error');
+        setAiResult('');
+        setAiImages([]);
+      } else {
+        setAiResult(data.analysis);
+        setAiImages(data.images || []);
+      }
+      
     } catch (err) {
       if (err.name === 'AbortError') return;
-      setAiResult(`Error: ${err.message}`);
+      
+      // CRITICAL FIX 2: Trigger the sticky toast for hard HTTP errors
+      showToast(err.message, 'error');
+      
+      // Clear the result state so the modal cleanly reverts to the "Pre-run" state 
+      // instead of rendering a blank document card.
+      setAiResult('');
+      setAiImages([]);
+      
     } finally {
       if (analysisAbortRef.current === controller) {
         setIsAnalyzing(false);
@@ -610,25 +626,37 @@ export function useTeacherDashboard(showToast) {
 
     async function startEditingHistory(item) {
       if (!item?.id) { showToast('Cannot load report: Missing ID', 'error'); return; }
-      setIsLoadingDetails(true);
-      flushSync(() => setIsLoadingDetails(true));
-      setSelectedHistoryItem({ id: item.id, fileName: item.fileName });
+
+      // 1. Force React to instantly open the modal and show the spinner in exactly 1 frame
+      flushSync(() => {
+          setIsLoadingDetails(true);
+          setSelectedHistoryItem({ id: item.id, fileName: item.fileName });
+      });
+
       try {
-        const [full] = await Promise.all([
-            fetchHistoryItem(item.id),
-            new Promise(resolve => setTimeout(resolve, 1000)),
-        ]);
-        if (historyLoadAbortRef.current) return;
-        setSelectedHistoryItem(full);
-        setEditedReportText(full.evaluationResult || '');
-        setEditedTeacherFeedback(full.teacherFeedback || '');
-        setAiImages(full.extractedImages || []);
+          // 2. Fetch the data AND enforce a minimum 1-second loading screen to prevent UI flickering
+          const [full] = await Promise.all([
+              fetchHistoryItem(item.id),
+              new Promise(resolve => setTimeout(resolve, 1000)),
+          ]);
+
+          if (historyLoadAbortRef.current) return;
+
+          // 3. Populate the modal with the real data
+          setSelectedHistoryItem(full);
+          setEditedReportText(full.evaluationResult || '');
+          setEditedTeacherFeedback(full.teacherFeedback || '');
+          setAiImages(full.extractedImages || []);
+
       } catch (err) {
-        if (historyLoadAbortRef.current) return;
-        showToast(`Failed to load report details: ${err.message}`, 'error');
-        setSelectedHistoryItem(null);
+          if (historyLoadAbortRef.current) return;
+          
+          // 4. On error: Close the modal so the user isn't stuck, and show the locked error toast
+          showToast(`Failed to load report details: ${err.message}`, 'error');
+          setSelectedHistoryItem(null); 
+
       } finally {
-        if (!historyLoadAbortRef.current) setIsLoadingDetails(false);
+          if (!historyLoadAbortRef.current) setIsLoadingDetails(false);
       }
   }
 
