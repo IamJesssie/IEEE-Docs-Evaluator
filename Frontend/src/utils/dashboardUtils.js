@@ -23,6 +23,8 @@ export function getDisplayType(mimeType) {
       return 'DOCX';
     case 'text/plain':
       return 'Plain Text';
+    case 'application/vnd.google-apps.folder':
+      return 'FOLDER (Invalid)';
     default:
       return 'Document';
   }

@@ -121,15 +121,15 @@ public class SubmissionSyncService {
         }
 
         // Fetch the real mimeType from Drive instead of hardcoding it
-        String mimeType = "application/vnd.google-apps.document";
+        String mimeType;
         try {
             com.google.api.services.drive.model.File fileInfo = driveService
                     .files().get(fileId).setFields("mimeType").execute();
-            if (fileInfo.getMimeType() != null) {
-                mimeType = fileInfo.getMimeType();
-            }
+            mimeType = fileInfo.getMimeType() != null ? fileInfo.getMimeType() : "application/vnd.google-apps.document";
         } catch (Exception e) {
-            System.err.println("Could not fetch mimeType for fileId=" + fileId + ": " + e.getMessage());
+            // CRITICAL FIX: If the file is deleted or inaccessible, DO NOT add it to the map.
+            System.err.println("Skipping inaccessible fileId=" + fileId + ": " + e.getMessage());
+            return; // Exit the method so it isn't added to submissionMap
         }
 
         DriveFile file = new DriveFile();
