@@ -1,4 +1,5 @@
 import { extractSubmissionMeta, formatDate } from '../../utils/dashboardUtils';
+import { formatDateTime } from '../../utils/dashboardUtils';
 
 function StudentReportsTable({ reports, loading, viewedIds = [], onOpen }) {
   if (loading) return <p className="muted">Loading your evaluations...</p>;
@@ -28,7 +29,7 @@ function StudentReportsTable({ reports, loading, viewedIds = [], onOpen }) {
       </thead>
       <tbody>
         {reports.map((report) => {
-          const isNew = !viewedIds.includes(report.id);
+          const isNew   = !viewedIds.includes(report.id);
           const docType = extractSubmissionMeta(report.fileName).documentType;
           return (
             <tr key={report.id} className={isNew ? 'student-row--new' : ''}>
@@ -36,7 +37,7 @@ function StudentReportsTable({ reports, loading, viewedIds = [], onOpen }) {
               <td>
                 {docType && <span className="student-doc-badge">{docType}</span>}
               </td>
-              <td>{formatDate(report.evaluatedAt)}</td>
+              <td>{formatDateTime(report.evaluatedAt)}</td>
               <td>
                 <span className={`student-status ${isNew ? 'student-status--new' : 'student-status--viewed'}`}>
                   {isNew ? 'New' : 'Viewed'}

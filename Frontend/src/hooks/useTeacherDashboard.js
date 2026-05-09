@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '../api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { flushSync } from 'react-dom';
 import {
   analyzeSubmission,
   fetchAiRuntimeSettings,
@@ -56,6 +57,8 @@ export function useTeacherDashboard(showToast) {
   const [aiResult, setAiResult] = useState('');
   const [aiImages, setAiImages] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const historyLoadAbortRef = useRef(false);
 
   // ── SSE progress state ────────────────────────────────────────────────────
   const [analysisProgress, setAnalysisProgress] = useState({
@@ -289,12 +292,15 @@ export function useTeacherDashboard(showToast) {
   const analyzedFileIds = useMemo(() => new Set(historyLogs.map((h) => h.fileId)), [historyLogs]);
 
   useEffect(() => {
-    if (currentView === 'submissions') { loadSubmissions(); loadHistory(); loadAiRuntime(); }
-    if (currentView === 'reports')     loadHistory();
-    if (currentView === 'settings')    loadSettings();
-    if (currentView === 'submissions' || currentView === 'reports') {
+      loadSubmissions();
+      loadHistory();
+      loadAiRuntime();
       fetchClassRoster().then(setRoster).catch(() => {});
-    }
+  }, []);
+
+  useEffect(() => {
+      if (currentView === 'reports')  loadHistory();
+      if (currentView === 'settings') loadSettings();
   }, [currentView]);
 
   // ── Filter options ────────────────────────────────────────────────────────
@@ -602,19 +608,28 @@ export function useTeacherDashboard(showToast) {
 
   // ── History modal ─────────────────────────────────────────────────────────
 
-  async function startEditingHistory(item) {
-    if (!item?.id) { showToast('Cannot load report: Missing ID', 'error'); return; }
-    setIsLoadingDetails(true);
-    setSelectedHistoryItem(item);
-    try {
-      const full = await fetchHistoryItem(item.id);
-      setSelectedHistoryItem(full);
-      setEditedReportText(full.evaluationResult || '');
-      setEditedTeacherFeedback(full.teacherFeedback || '');
-      setAiImages(full.extractedImages || []);
-    } catch (err) {
-      showToast(`Failed to load report details: ${err.message}`, 'error');
-    } finally { setIsLoadingDetails(false); }
+    async function startEditingHistory(item) {
+      if (!item?.id) { showToast('Cannot load report: Missing ID', 'error'); return; }
+      setIsLoadingDetails(true);
+      flushSync(() => setIsLoadingDetails(true));
+      setSelectedHistoryItem({ id: item.id, fileName: item.fileName });
+      try {
+        const [full] = await Promise.all([
+            fetchHistoryItem(item.id),
+            new Promise(resolve => setTimeout(resolve, 1000)),
+        ]);
+        if (historyLoadAbortRef.current) return;
+        setSelectedHistoryItem(full);
+        setEditedReportText(full.evaluationResult || '');
+        setEditedTeacherFeedback(full.teacherFeedback || '');
+        setAiImages(full.extractedImages || []);
+      } catch (err) {
+        if (historyLoadAbortRef.current) return;
+        showToast(`Failed to load report details: ${err.message}`, 'error');
+        setSelectedHistoryItem(null);
+      } finally {
+        if (!historyLoadAbortRef.current) setIsLoadingDetails(false);
+      }
   }
 
   async function saveEditedHistory() {
@@ -641,8 +656,9 @@ export function useTeacherDashboard(showToast) {
   }
 
   function closeHistoryModal() {
-    setSelectedHistoryItem(null);
-    setIsEditingReport(false);
+      setSelectedHistoryItem(null);
+      setIsEditingReport(false);
+      setIsLoadingDetails(false);
   }
 
   // ── Settings ──────────────────────────────────────────────────────────────
@@ -696,6 +712,7 @@ export function useTeacherDashboard(showToast) {
     reportSearchQuery, reportStatusFilter, reportDocTypeFilter,
     reportSelectedStudent, reportSelectedSection, reportSelectedTeamCode,
     loadingHistory,
+    isLoadingDetails,
     settings, loadingSettings, aiRuntimeSettings, editedSettings, isSavingAll,
     dirtyCount: Object.keys(editedSettings).length,
     isAnalyzeOpen, setIsAnalyzeOpen, closeAnalyzeModal,

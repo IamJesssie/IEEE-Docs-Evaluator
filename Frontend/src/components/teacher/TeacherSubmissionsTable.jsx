@@ -1,4 +1,5 @@
 import { getDisplayType } from '../../utils/dashboardUtils';
+import { formatDateTime } from '../../utils/dashboardUtils';
 
 function TeacherSubmissionsTable({ files, loading, isSyncing, analyzedFileIds, onSort, onAnalyze }) {
   return (
@@ -30,7 +31,7 @@ function TeacherSubmissionsTable({ files, loading, isSyncing, analyzedFileIds, o
                   </a>
                 </td>
                 <td>{getDisplayType(file.mimeType)}</td>
-                <td>{file.submittedAt}</td>
+                <td>{formatDateTime(file.submittedAt)}</td>
                 <td>
                   <button className="btn btn--soft" onClick={() => onAnalyze(file)}>
                     {analyzedFileIds?.has(file.id) ? 'Re-Evaluate' : 'Run AI Analysis'}

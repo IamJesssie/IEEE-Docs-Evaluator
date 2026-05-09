@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { fetchClassRoster, fetchStudentReports } from '../services/dashboardService';
 import { extractSubmissionMeta } from '../utils/dashboardUtils';
+import { getViewedReportIds, markReportAsViewed } from '../api';
 
 const DOC_TYPES = ['SRS', 'SDD', 'SPMP', 'STD'];
 
@@ -11,11 +12,9 @@ export function useStudentReports(groupCode) {
   const [teamMembers, setTeamMembers] = useState([]);
   const [selectedDocType, setSelectedDocType] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewedIds, setViewedIds] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('viewedReportIds') || '[]');
-    } catch { return []; }
-  });
+  const [viewedIds, setViewedIds] = useState([]);
+
+  // ── Load reports ──────────────────────────────────────────────────────────
 
   const loadReports = useCallback(async () => {
     try {
@@ -33,6 +32,24 @@ export function useStudentReports(groupCode) {
     loadReports();
   }, [loadReports]);
 
+  // ── Load viewed IDs from Supabase ─────────────────────────────────────────
+
+  const loadViewedIds = useCallback(async () => {
+    if (!groupCode) return;
+    try {
+      const ids = await getViewedReportIds(groupCode);
+      setViewedIds(Array.isArray(ids) ? ids : []);
+    } catch (err) {
+      console.error('Failed to load viewed report IDs:', err);
+    }
+  }, [groupCode]);
+
+  useEffect(() => {
+    loadViewedIds();
+  }, [loadViewedIds]);
+
+  // ── Team members ──────────────────────────────────────────────────────────
+
   useEffect(() => {
     fetchClassRoster()
       .then((roster) => {
@@ -45,8 +62,6 @@ export function useStudentReports(groupCode) {
   }, [groupCode]);
 
   // ── Real-time subscription ────────────────────────────────────────────────
-  // When the professor hits Send Result, the student sees the new evaluation
-  // appear without clicking Check for Updates.
 
   useEffect(() => {
     if (!groupCode) return;
@@ -59,12 +74,10 @@ export function useStudentReports(groupCode) {
           event: 'UPDATE',
           schema: 'public',
           table: 'evaluation_history',
-          // Only fire when is_sent flips to true — avoids unnecessary reloads
           filter: 'is_sent=eq.true',
         },
         (payload) => {
           const fileName = payload.new?.file_name || '';
-          // Only reload if this update is relevant to this student's group code
           if (fileName.toLowerCase().includes(groupCode.toLowerCase())) {
             loadReports();
           }
@@ -77,16 +90,19 @@ export function useStudentReports(groupCode) {
     };
   }, [groupCode, loadReports]);
 
-  // ── Viewed tracking ───────────────────────────────────────────────────────
+  // ── Mark viewed ───────────────────────────────────────────────────────────
 
-  function markViewed(id) {
-    setViewedIds((prev) => {
-      if (prev.includes(id)) return prev;
-      const next = [...prev, id];
-      localStorage.setItem('viewedReportIds', JSON.stringify(next));
-      return next;
-    });
-  }
+  const markViewed = useCallback(async (id) => {
+    if (viewedIds.includes(id)) return;
+    setViewedIds((prev) => [...prev, id]);
+    try {
+      await markReportAsViewed(groupCode, id);
+    } catch (err) {
+      console.error('Failed to persist viewed state:', err);
+      // Revert optimistic update on failure
+      setViewedIds((prev) => prev.filter((v) => v !== id));
+    }
+  }, [groupCode, viewedIds]);
 
   // ── Filtering ─────────────────────────────────────────────────────────────
 
