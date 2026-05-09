@@ -2,6 +2,7 @@ package com.ieee.evaluator.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp; // <-- Import this
 import java.time.LocalDateTime;
 
 @Data
@@ -22,6 +23,7 @@ public class ViewedReport {
     @Column(name = "report_id", nullable = false)
     private Long reportId;
 
-    @Column(name = "viewed_at", insertable = false, updatable = false)
+    @CreationTimestamp
+    @Column(name = "viewed_at", updatable = false)
     private LocalDateTime viewedAt;
 }

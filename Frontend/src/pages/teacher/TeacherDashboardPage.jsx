@@ -22,7 +22,7 @@ import '../../styles/components/layout.css';
 import '../../styles/components/tutorial.css';
 
 function TeacherDashboardPage({ user }) {
-  const { toast, showToast } = useToast();
+  const { toast, showToast, hideToast } = useToast();
   const { themeMode, setThemeMode } = useTheme();
   const tutorial = useTutorial({
     tutorialType: TUTORIAL_TYPES.TEACHER,
@@ -103,7 +103,7 @@ function TeacherDashboardPage({ user }) {
 
   return (
     <div className="layout layout--teacher">
-      <ToastMessage toast={toast} />
+      <ToastMessage toast={toast} onClose={hideToast} />
 
       <TeacherSidebar
         currentView={vm.currentView}

@@ -23,7 +23,7 @@ export const teacherTutorialSteps = [
   },
   {
     target: '.teacher-sidebar__nav .nav-btn:nth-child(3)',
-    content: 'Professor Workspace: manage workspace tools and focus areas for analysis.',
+    content: 'AI Configurations: manage AI logic, prompt templates,and focus areas for analysis.',
     placement: 'right',
   },
   {

@@ -334,7 +334,7 @@ export default function ProfessorWorkspacePage() {
   if (config.loading) {
     return (
       <div>
-        <PanelHeader title="Professor Workspace" subtitle="Loading configuration..." />
+        <PanelHeader title="Configure AI Logic" subtitle="Loading configuration..." />
         <p className="muted" style={{ padding: '1rem' }}>Loading...</p>
       </div>
     );
@@ -358,7 +358,7 @@ export default function ProfessorWorkspacePage() {
       <ToastMessage toast={toast} />
 
       <PanelHeader
-        title="Professor Workspace"
+        title="Configure AI Logic"
         subtitle="Configure evaluation behavior, templates, and render settings"
       />
 
