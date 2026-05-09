@@ -5,6 +5,7 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.drive.Drive;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,16 +15,16 @@ import java.security.GeneralSecurityException;
 @Configuration
 public class GoogleDriveConfig {
 
-    private final Credential googleCredential;
+    private final Credential driveOAuthCredential;
 
-    public GoogleDriveConfig(Credential googleCredential) {
-        this.googleCredential = googleCredential;
+    public GoogleDriveConfig(@Qualifier("driveOAuthCredential") Credential driveOAuthCredential) {
+        this.driveOAuthCredential = driveOAuthCredential;
     }
 
     @Bean
     public Drive driveService() throws IOException, GeneralSecurityException {
         HttpRequestInitializer timeoutInitializer = request -> {
-            googleCredential.initialize(request);
+            driveOAuthCredential.initialize(request);
             request.setConnectTimeout(60_000);
             request.setReadTimeout(300_000);
         };

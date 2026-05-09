@@ -4,6 +4,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.sheets.v4.Sheets;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,7 +16,7 @@ public class GoogleSheetsConfig {
 
     private final GoogleCredential googleCredential;
 
-    public GoogleSheetsConfig(GoogleCredential googleCredential) {
+    public GoogleSheetsConfig(@Qualifier("googleCredential") GoogleCredential googleCredential) {
         this.googleCredential = googleCredential;
     }
 

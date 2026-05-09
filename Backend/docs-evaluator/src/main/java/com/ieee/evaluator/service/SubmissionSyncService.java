@@ -1,5 +1,6 @@
 package com.ieee.evaluator.service;
 
+import com.google.api.services.drive.Drive;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import com.ieee.evaluator.model.DriveFile;
@@ -22,13 +23,19 @@ public class SubmissionSyncService {
     private final Sheets sheetsService;
     private final GoogleSheetsService configLoader;
     private final DynamicConfigService configService;
+    private final Drive driveService;
 
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("M/d/yyyy H:mm:ss");
 
-    public SubmissionSyncService(Sheets sheetsService, GoogleSheetsService configLoader, DynamicConfigService configService) {
+    public SubmissionSyncService(
+            Sheets sheetsService,
+            GoogleSheetsService configLoader,
+            DynamicConfigService configService,
+            Drive driveService) {
         this.sheetsService = sheetsService;
-        this.configLoader = configLoader;
+        this.configLoader  = configLoader;
         this.configService = configService;
+        this.driveService  = driveService;
     }
 
     public List<DriveFile> getLatestSubmissions() throws IOException {
@@ -39,20 +46,17 @@ public class SubmissionSyncService {
             throw new IOException("Could not load deliverable rules: " + e.getMessage());
         }
 
-        String spreadsheetId = configService.getValue("GOOGLE_SHEET_ID");
-        String responsesRange = configService.getValue("GOOGLE_RESPONSES_RANGE");
+        String spreadsheetId   = configService.getValue("GOOGLE_SHEET_ID");
+        String responsesRange  = configService.getValue("GOOGLE_RESPONSES_RANGE");
 
-        // Fetch Core Info Columns
         int colTimestamp = getColumnIndexSafely("COL_INDEX_TIMESTAMP");
-        int colName     = getColumnIndexSafely("COL_INDEX_NAME");
-        int colSection  = getColumnIndexSafely("COL_INDEX_SECTION");
-        int colTeam     = getColumnIndexSafely("COL_INDEX_TEAM");
-
-        // Fetch Specific Document Columns
-        int colSrs  = getColumnIndexSafely("COL_INDEX_SRS");
-        int colSdd  = getColumnIndexSafely("COL_INDEX_SDD");
-        int colSpmp = getColumnIndexSafely("COL_INDEX_SPMP");
-        int colStd  = getColumnIndexSafely("COL_INDEX_STD");
+        int colName      = getColumnIndexSafely("COL_INDEX_NAME");
+        int colSection   = getColumnIndexSafely("COL_INDEX_SECTION");
+        int colTeam      = getColumnIndexSafely("COL_INDEX_TEAM");
+        int colSrs       = getColumnIndexSafely("COL_INDEX_SRS");
+        int colSdd       = getColumnIndexSafely("COL_INDEX_SDD");
+        int colSpmp      = getColumnIndexSafely("COL_INDEX_SPMP");
+        int colStd       = getColumnIndexSafely("COL_INDEX_STD");
 
         ValueRange response = sheetsService.spreadsheets().values()
                 .get(spreadsheetId, responsesRange)
@@ -60,23 +64,17 @@ public class SubmissionSyncService {
 
         List<List<Object>> values = response.getValues();
 
-        // Use a LinkedHashMap keyed by fileId to automatically deduplicate.
-        // If the same Google Drive file appears in multiple rows (re-submissions),
-        // the LAST row wins — meaning the most recent submission takes precedence
-        // since Google Forms appends new responses at the bottom.
         Map<String, DriveFile> submissionMap = new LinkedHashMap<>();
 
         if (values != null) {
             for (List<Object> row : values) {
                 if (row.isEmpty()) continue;
 
-                // Student Tags
                 String timestampStr = row.size() > colTimestamp && colTimestamp >= 0 ? row.get(colTimestamp).toString() : "Unknown Date";
                 String studentName  = row.size() > colName      && colName >= 0      ? row.get(colName).toString()      : "Unknown Student";
                 String teamCode     = row.size() > colTeam      && colTeam >= 0      ? row.get(colTeam).toString()      : "No Team";
                 String section      = row.size() > colSection   && colSection >= 0   ? row.get(colSection).toString()   : "No Section";
 
-                // File Tags
                 extractAndAddFile(row, colSrs,  "SRS",  studentName, teamCode, section, timestampStr, configMap, submissionMap);
                 extractAndAddFile(row, colSdd,  "SDD",  studentName, teamCode, section, timestampStr, configMap, submissionMap);
                 extractAndAddFile(row, colSpmp, "SPMP", studentName, teamCode, section, timestampStr, configMap, submissionMap);
@@ -96,7 +94,12 @@ public class SubmissionSyncService {
         }
     }
 
-    private void extractAndAddFile(List<Object> row, int colIndex, String docType, String studentName, String teamCode, String section, String timestampStr, Map<String, DeliverableConfig> configMap, Map<String, DriveFile> submissionMap) {
+    private void extractAndAddFile(
+            List<Object> row, int colIndex, String docType,
+            String studentName, String teamCode, String section,
+            String timestampStr, Map<String, DeliverableConfig> configMap,
+            Map<String, DriveFile> submissionMap) {
+
         if (colIndex < 0 || colIndex >= row.size()) return;
 
         String url = row.get(colIndex).toString().trim();
@@ -117,6 +120,18 @@ public class SubmissionSyncService {
             }
         }
 
+        // Fetch the real mimeType from Drive instead of hardcoding it
+        String mimeType = "application/vnd.google-apps.document";
+        try {
+            com.google.api.services.drive.model.File fileInfo = driveService
+                    .files().get(fileId).setFields("mimeType").execute();
+            if (fileInfo.getMimeType() != null) {
+                mimeType = fileInfo.getMimeType();
+            }
+        } catch (Exception e) {
+            System.err.println("Could not fetch mimeType for fileId=" + fileId + ": " + e.getMessage());
+        }
+
         DriveFile file = new DriveFile();
         file.setId(fileId);
         file.setWebViewLink(url);
@@ -124,12 +139,8 @@ public class SubmissionSyncService {
         String statusPrefix = isLate ? "[LATE] " : "";
         file.setName(statusPrefix + "[" + docType + "] " + section + " - " + teamCode + " | " + studentName);
         file.setSubmittedAt(timestampStr);
-        file.setMimeType("application/vnd.google-apps.document");
+        file.setMimeType(mimeType);
 
-        // Key is fileId + docType so that the same Drive file submitted under
-        // different document types (e.g. a student reusing one link) are kept
-        // as separate entries, while true duplicates (same file, same type,
-        // multiple rows) are collapsed to the latest submission.
         submissionMap.put(fileId + "_" + docType, file);
     }
 
