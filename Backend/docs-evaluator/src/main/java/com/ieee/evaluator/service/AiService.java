@@ -140,6 +140,15 @@ public class AiService {
                 log.warn("Document evaluation failed for fileId={} provider={} on attempt {}/{}: {}",
                     fileId, provider.getProviderName(), attempt, maxAttempts, e.getMessage());
 
+                // ── CRITICAL FIX: Fail fast on permanent errors ──
+                String errMsg = e.getMessage() != null ? e.getMessage().toUpperCase() : "";
+                if (errMsg.contains("PERMISSION DENIED") ||
+                    errMsg.contains("FILE NOT FOUND") ||
+                    errMsg.contains("UNSUPPORTED FILE FORMAT") ||
+                    errMsg.contains("NO READABLE TEXT")) {
+                    throw e; // Abort the retry loop immediately
+                }
+
                 if (elapsed >= timeLimitMs) {
                     throw new IllegalStateException(
                         "EVALUATION ERROR: Retry time limit exceeded. Please try again.", e);

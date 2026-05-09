@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useRef } from 'react';
 
 // ── Step definitions — ordered as they appear in the UI ───────────────────────
 const STEPS = [
@@ -13,13 +13,12 @@ const STEPS = [
   { key: 'COMPLETE',        label: 'Complete',                icon: '09', description: 'Evaluation finished successfully' },
 ];
 
-// Keys that map to each step — RETRYING is an overlay state, not a step card
 const STEP_KEYS = STEPS.map((s) => s.key);
 
-function stepStatus(stepKey, currentStep, percent) {
+// CRITICAL FIX: Pass the lastValidStep dynamically instead of hardcoding it
+function stepStatus(stepKey, currentStep, lastValidStep) {
   if (currentStep === 'RETRYING') {
-    // During retry, everything up to SENDING_TO_AI is "done"
-    const retryIdx = STEP_KEYS.indexOf('SENDING_TO_AI');
+    const retryIdx = STEP_KEYS.indexOf(lastValidStep);
     const thisIdx  = STEP_KEYS.indexOf(stepKey);
     if (thisIdx < retryIdx)  return 'done';
     if (thisIdx === retryIdx) return 'retrying';
@@ -33,6 +32,12 @@ function stepStatus(stepKey, currentStep, percent) {
 }
 
 function AnalysisProgress({ currentStep, currentMessage, percent, isRetrying }) {
+  // Remember the last step so we know exactly where we failed
+  const lastValidStepRef = useRef('RECEIVED');
+  if (currentStep && currentStep !== 'RETRYING') {
+    lastValidStepRef.current = currentStep;
+  }
+
   return (
     <div className="ap-root">
 
@@ -60,7 +65,8 @@ function AnalysisProgress({ currentStep, currentMessage, percent, isRetrying }) 
       {/* ── Step cards ── */}
       <div className="ap-steps">
         {STEPS.map(({ key, label, icon, description }) => {
-          const status = stepStatus(key, currentStep, percent);
+          // Pass our tracked last valid step to the status calculator
+          const status = stepStatus(key, currentStep, lastValidStepRef.current);
           return (
             <StepCard
               key={key}
