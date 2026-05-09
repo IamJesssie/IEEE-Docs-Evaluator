@@ -287,6 +287,7 @@ function TeacherDashboardPage({ user }) {
         item={vm.selectedHistoryItem}
         images={vm.aiImages.length > 0 ? vm.aiImages : (vm.selectedHistoryItem?.extractedImages || [])}
         isEditing={vm.isEditingReport}
+        isLoading={vm.isLoadingDetails}
         editedText={vm.editedReportText}
         editedFeedback={vm.editedTeacherFeedback}
         onEditToggle={vm.setIsEditingReport}

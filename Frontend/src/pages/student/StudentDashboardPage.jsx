@@ -11,7 +11,7 @@ import { TUTORIAL_TYPES } from '../../tutorials/tutorialConfig';
 import '../../styles/pages/student-dashboard.css';
 import '../../styles/components/layout.css';
 import '../../styles/components/tutorial.css';
-import { getStudentReportById } from '../../api'
+import { getStudentReportById } from '../../api';
 
 function StudentDashboardPage({ studentData }) {
   const vm = useStudentReports(studentData.groupCode);
@@ -21,24 +21,31 @@ function StudentDashboardPage({ studentData }) {
     maxRuns: 2,
     autoStart: true,
   });
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [isFetchingDetails, setIsFetchingDetails] = useState(false);
 
-async function handleOpenReport(reportSummary) {
+  const [selectedReport, setSelectedReport]       = useState(null);
+  const [isFetchingDetails, setIsFetchingDetails] = useState(false);
+  const [modalOpen, setModalOpen]                 = useState(false);
+
+  async function handleOpenReport(reportSummary) {
     vm.markViewed(reportSummary.id);
-    
+    setModalOpen(true);
+    setSelectedReport(null);
+    setIsFetchingDetails(true);
     try {
-      setIsFetchingDetails(true);
-      // Fetch the full report with images
       const fullReport = await getStudentReportById(reportSummary.id);
       setSelectedReport(fullReport);
     } catch (error) {
-      console.error("Failed to load report images", error);
-      // Fallback: show what we have, but images will be missing
-      setSelectedReport(reportSummary); 
+      console.error('Failed to load report images', error);
+      setSelectedReport(reportSummary);
     } finally {
       setIsFetchingDetails(false);
     }
+  }
+
+  function handleClose() {
+    setModalOpen(false);
+    setSelectedReport(null);
+    setIsFetchingDetails(false);
   }
 
   return (
@@ -125,7 +132,11 @@ async function handleOpenReport(reportSummary) {
         </div>
       </main>
 
-      <StudentReportModal report={selectedReport} onClose={() => setSelectedReport(null)} />
+      <StudentReportModal
+        report={selectedReport}
+        isLoading={isFetchingDetails}
+        onClose={handleClose}
+      />
     </div>
   );
 }

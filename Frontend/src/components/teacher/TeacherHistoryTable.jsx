@@ -37,8 +37,8 @@ function TeacherHistoryTable({ logs, allCount = 0, loading, onView, onDelete }) 
                 </td>
                 <td>
                   <button className="btn btn--soft" onClick={() => onView(log)}>View Full Report</button>
-                  <button 
-                    className="btn btn--danger btn--small" 
+                  <button
+                    className="btn btn--danger btn--small"
                     style={{ marginLeft: '8px' }}
                     onClick={() => onDelete(log.id)}
                     title="Remove from view (data preserved in database)"

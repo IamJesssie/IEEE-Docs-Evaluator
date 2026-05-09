@@ -267,3 +267,22 @@ export const deleteAnnotation = async (annotationId) => {
     if (!response.ok) throw new Error(data.error || 'Failed to delete annotation.');
     return data;
 };
+
+// ── Viewed Reports ────────────────────────────────────────────────────────────
+ 
+export const getViewedReportIds = async (groupCode) => {
+    const response = await fetch(`${API_BASE_URL}/student/viewed-reports?groupCode=${encodeURIComponent(groupCode)}`);
+    if (!response.ok) throw new Error('Failed to fetch viewed report IDs.');
+    return await response.json(); // returns Long[]
+};
+ 
+export const markReportAsViewed = async (groupCode, reportId) => {
+    const response = await fetch(`${API_BASE_URL}/student/viewed-reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupCode, reportId }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to mark report as viewed.');
+    return data;
+};

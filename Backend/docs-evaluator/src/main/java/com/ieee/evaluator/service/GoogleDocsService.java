@@ -1,5 +1,6 @@
 package com.ieee.evaluator.service;
 
+import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.ByteArrayContent;
 import com.google.api.services.drive.Drive;
@@ -9,10 +10,14 @@ import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.sax.BodyContentHandler;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -27,10 +32,15 @@ public class GoogleDocsService {
 
     private final Drive driveService;
     private final PdfImageExtractor pdfImageExtractor;
+    private final Credential driveOAuthCredential;
 
-    public GoogleDocsService(Drive driveService, PdfImageExtractor pdfImageExtractor) {
-        this.driveService      = driveService;
-        this.pdfImageExtractor = pdfImageExtractor;
+    public GoogleDocsService(
+            Drive driveService,
+            PdfImageExtractor pdfImageExtractor,
+            @Qualifier("driveOAuthCredential") Credential driveOAuthCredential) {
+        this.driveService         = driveService;
+        this.pdfImageExtractor    = pdfImageExtractor;
+        this.driveOAuthCredential = driveOAuthCredential;
     }
 
     public record DocumentData(String text, List<String> images) {}
@@ -95,7 +105,7 @@ public class GoogleDocsService {
             else if (DOCX_MIME.equals(mimeType)) {
                 progress(emitter, sessionId, "EXTRACTING",
                     "Downloading DOCX document", 15);
-                byte[] docxBytes = downloadBlobBytes(fileId);
+                byte[] docxBytes = downloadBlobBytesViaHttp(fileId);
 
                 progress(emitter, sessionId, "EXTRACTING",
                     "Extracting text content from DOCX", 22);
@@ -115,7 +125,7 @@ public class GoogleDocsService {
             else if (PLAIN_TEXT_MIME.equals(mimeType)) {
                 progress(emitter, sessionId, "EXTRACTING",
                     "Downloading plain text document", 15);
-                byte[] textBytes = downloadBlobBytes(fileId);
+                byte[] textBytes = downloadBlobBytesViaHttp(fileId);
                 text = new String(textBytes, StandardCharsets.UTF_8);
             }
             else {
@@ -129,10 +139,12 @@ public class GoogleDocsService {
 
         } catch (GoogleJsonResponseException e) {
             throw toFriendlyDriveException(e);
+        } catch (IOException e) {
+            throw new Exception("Download failed: " + e.getMessage(), e);
         }
     }
 
-    // ── Vision export (unchanged) ─────────────────────────────────────────────
+    // ── Vision export ─────────────────────────────────────────────────────────
 
     public byte[] exportDocAsPdfBytesForVision(String fileId) throws Exception {
         if (fileId == null || fileId.isEmpty()) {
@@ -145,7 +157,7 @@ public class GoogleDocsService {
             if (GOOGLE_DOC_MIME.equals(mimeType)) return exportGoogleDocAsPdf(fileId);
             if (PDF_MIME.equals(mimeType))        return downloadBlobBytes(fileId);
             if (DOCX_MIME.equals(mimeType)) {
-                byte[] docxBytes = downloadBlobBytes(fileId);
+                byte[] docxBytes = downloadBlobBytesViaHttp(fileId);
                 return convertDocxToTemporaryGoogleDocAndExportPdf(fileInfo, docxBytes);
             }
             throw new Exception(
@@ -153,10 +165,53 @@ public class GoogleDocsService {
             );
         } catch (GoogleJsonResponseException e) {
             throw toFriendlyDriveException(e);
+        } catch (IOException e) {
+            throw new Exception("Download failed: " + e.getMessage(), e);
         }
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────
+
+    /**
+     * Downloads a binary file (DOCX, plain text) using a direct HTTP request
+     * with the OAuth Bearer token. This works for files shared as
+     * "Anyone with the link" where the Drive API media download (.setAlt("media"))
+     * returns 403.
+     */
+    private byte[] downloadBlobBytesViaHttp(String fileId) throws Exception {
+        if (driveOAuthCredential.getAccessToken() == null ||
+            driveOAuthCredential.getExpiresInSeconds() != null &&
+            driveOAuthCredential.getExpiresInSeconds() <= 60) {
+            driveOAuthCredential.refreshToken();
+        }
+        String accessToken = driveOAuthCredential.getAccessToken();
+
+        String downloadUrl = "https://www.googleapis.com/drive/v3/files/"
+                + fileId + "?alt=media";
+
+        HttpURLConnection connection = (HttpURLConnection) new URL(downloadUrl).openConnection();
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("Authorization", "Bearer " + accessToken);
+        connection.setConnectTimeout(60_000);
+        connection.setReadTimeout(300_000);
+
+        int responseCode = connection.getResponseCode();
+        if (responseCode == 200) {
+            try (InputStream is = connection.getInputStream()) {
+                return is.readAllBytes();
+            }
+        } else {
+            String responseBody = "";
+            try (InputStream err = connection.getErrorStream()) {
+                if (err != null) responseBody = new String(err.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            log.warn("HTTP download failed for fileId={} code={} body={}", fileId, responseCode, responseBody);
+            throw new IOException(
+                "Failed to download file id=" + fileId +
+                " via HTTP. Response code: " + responseCode
+            );
+        }
+    }
 
     private byte[] convertDocxToTemporaryGoogleDocAndExportPdf(
             File sourceFile, byte[] docxBytes) throws Exception {
@@ -188,6 +243,7 @@ public class GoogleDocsService {
         }
     }
 
+    // Kept for PDF which still works fine via the Drive API
     private byte[] downloadBlobBytes(String fileId) throws Exception {
         try (InputStream is = driveService.files().get(fileId).setAlt("media").executeMediaAsInputStream()) {
             return is.readAllBytes();
@@ -206,18 +262,15 @@ public class GoogleDocsService {
     private Exception toFriendlyDriveException(GoogleJsonResponseException e) {
         if (e.getStatusCode() == 403) {
             return new Exception(
-                "PERMISSION DENIED: The service account does not have access to this file. " +
-                "Please set the sharing to 'Anyone with the link' and ensure the access level " +
-                "is set to 'Editor' (not Viewer or Commenter). " +
-                "Viewer access is not sufficient — the service account requires Editor permissions " +
-                "to export and read the document contents."
+                "PERMISSION DENIED: The file is not accessible. " +
+                "Please set the sharing to 'Anyone with the link'."
             );
         }
         if (e.getStatusCode() == 404) {
             return new Exception(
                 "FILE NOT FOUND: The document could not be located. " +
                 "Please verify the file exists and sharing is set to " +
-                "'Anyone with the link' with 'Editor' access."
+                "'Anyone with the link'."
             );
         }
         return e;

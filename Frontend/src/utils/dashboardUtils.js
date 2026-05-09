@@ -3,11 +3,29 @@ export function formatDate(value) {
 }
 
 export function formatDateTime(value) {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
 export function getDisplayType(mimeType) {
-  return mimeType === 'application/vnd.google-apps.document' ? 'Google Doc' : 'Document';
+  switch (mimeType) {
+    case 'application/vnd.google-apps.document':
+      return 'Google Doc';
+    case 'application/pdf':
+      return 'PDF';
+    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+      return 'DOCX';
+    case 'text/plain':
+      return 'Plain Text';
+    default:
+      return 'Document';
+  }
 }
 
 const DOC_TYPES = ['SRS', 'SDD', 'SPMP', 'STD'];

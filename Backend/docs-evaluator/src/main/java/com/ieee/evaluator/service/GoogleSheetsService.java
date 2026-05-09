@@ -6,6 +6,7 @@ import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import com.ieee.evaluator.model.DeliverableConfig;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -22,17 +23,18 @@ public class GoogleSheetsService {
 
     private final Credential credential;
     private final String spreadsheetId;
-    
-    // Matches the format in your spreadsheet: 3/21/2026 23:59:00
+
     private static final DateTimeFormatter DEADLINE_FORMATTER = DateTimeFormatter.ofPattern("M/d/yyyy H:mm:ss");
 
-    public GoogleSheetsService(Credential credential, @Value("${app.google.spreadsheet-id:}") String spreadsheetId) {
+    public GoogleSheetsService(
+            @Qualifier("googleCredential") Credential credential,
+            @Value("${app.google.spreadsheet-id:}") String spreadsheetId) {
         this.credential = credential;
         this.spreadsheetId = spreadsheetId;
     }
 
     /**
-     * Fetches the Deliverable Configuration (Tags and Deadlines) 
+     * Fetches the Deliverable Configuration (Tags and Deadlines)
      * from the 'Deliverables_Config' tab.
      */
     public Map<String, DeliverableConfig> getDeliverableConfigs() throws IOException, GeneralSecurityException {
@@ -43,9 +45,8 @@ public class GoogleSheetsService {
                 .setApplicationName("IEEE Docs Evaluator")
                 .build();
 
-            ensureSpreadsheetId();
+        ensureSpreadsheetId();
 
-        // Reading Columns A (Tag) and B (Deadline)
         String range = "Deliverables_Config!A2:B";
         ValueRange response = service.spreadsheets().values()
             .get(spreadsheetId, range)
@@ -60,8 +61,8 @@ public class GoogleSheetsService {
 
         for (List<Object> row : values) {
             if (row.size() >= 2) {
-                String tag = row.get(0).toString().trim(); // e.g., "SRS"
-                String deadlineStr = row.get(1).toString().trim(); // e.g., "3/21/2026 23:59:00"
+                String tag = row.get(0).toString().trim();
+                String deadlineStr = row.get(1).toString().trim();
 
                 try {
                     LocalDateTime deadline = LocalDateTime.parse(deadlineStr, DEADLINE_FORMATTER);

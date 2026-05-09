@@ -3,22 +3,23 @@ import AppModal from '../common/AppModal';
 import EvaluationReport from '../common/EvaluationReport';
 import { useAnnotations } from '../../hooks/useAnnotations';
 
-function StudentReportModal({ report, onClose }) {
+function StudentReportModal({ report, onClose, isLoading = false }) {
   const hasFeedback = report?.teacherFeedback?.trim();
   const { annotations } = useAnnotations(report?.id);
   const [collapsed, setCollapsed] = useState(false);
 
   return (
     <AppModal
-      isOpen={Boolean(report)}
+      isOpen={Boolean(report) || isLoading}
       onClose={onClose}
       title="Professor's Evaluation"
       subtitle={report ? `File: ${report.fileName}` : ''}
       containerClassName="student-report-modal"
+      isLoading={isLoading}
     >
       <div className="report-view-container">
 
-        {/* ── Professor Annotations banner — shown first ── */}
+        {/* ── Professor Annotations banner ── */}
         {annotations.length > 0 && (
           <div style={{
             marginBottom: '1.25rem',
@@ -26,7 +27,6 @@ function StudentReportModal({ report, onClose }) {
             borderRadius: '12px',
             overflow: 'hidden',
           }}>
-            {/* Toggle header */}
             <button
               onClick={() => setCollapsed((p) => !p)}
               style={{
@@ -65,7 +65,6 @@ function StudentReportModal({ report, onClose }) {
               </span>
             </button>
 
-            {/* Annotation list */}
             {!collapsed && (
               <div style={{ padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                 {annotations.map((ann, idx) => (
@@ -76,7 +75,6 @@ function StudentReportModal({ report, onClose }) {
                     border: '1px solid color-mix(in srgb, #f59e0b 20%, var(--line-soft))',
                     background: 'var(--bg-surface)',
                   }}>
-                    {/* Number badge */}
                     <div style={{
                       flexShrink: 0, width: '22px', height: '22px', borderRadius: '50%',
                       background: '#f59e0b', color: '#fff',
@@ -86,9 +84,7 @@ function StudentReportModal({ report, onClose }) {
                     }}>
                       {idx + 1}
                     </div>
-
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      {/* Quoted text */}
                       <p style={{
                         margin: '0 0 0.35rem',
                         fontSize: '0.78rem', color: 'var(--text-muted)',
@@ -97,8 +93,6 @@ function StudentReportModal({ report, onClose }) {
                       }}>
                         "{ann.selectedText}"
                       </p>
-
-                      {/* Comment */}
                       <p style={{
                         margin: 0,
                         fontSize: '0.9rem', color: 'var(--text-main)',
@@ -114,7 +108,7 @@ function StudentReportModal({ report, onClose }) {
           </div>
         )}
 
-        {/* ── AI Evaluation report with inline annotation bubbles ── */}
+        {/* ── AI Evaluation report ── */}
         <EvaluationReport
           text={report?.evaluationResult}
           images={report?.extractedImages || []}

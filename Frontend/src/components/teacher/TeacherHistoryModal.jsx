@@ -15,6 +15,7 @@ function TeacherHistoryModal({
   item,
   images,
   isEditing,
+  isLoading = false,
   editedText,
   editedFeedback,
   onEditToggle,
@@ -181,7 +182,7 @@ function TeacherHistoryModal({
 
   // ── Footer ────────────────────────────────────────────────────────────────
 
- const footer = activeTab === 'edit' ? null : (
+  const footer = activeTab === 'edit' ? null : (
     <div className="modal-actions modal-actions--end">
       <button className="btn" onClick={() => onCopy(displayText)}>Copy Text</button>
       <button className="btn" onClick={() => { onEditToggle(true); setActiveTab('edit'); }}>Edit</button>
@@ -194,59 +195,66 @@ function TeacherHistoryModal({
 
   return (
     <AppModal
-      isOpen={Boolean(item)}
-      onClose={onClose}
-      title="Saved Evaluation Report"
-      subtitle={item ? `File: ${item.fileName}` : ''}
+      isOpen={Boolean(item) || isLoading}
+      onClose={isLoading ? () => {} : onClose}
+      title={isLoading ? 'Loading Report...' : 'Saved Evaluation Report'}
+      subtitle={item && !isLoading ? `File: ${item.fileName}` : ''}
       containerClassName="submission-history-modal"
-      footer={footer}
+      footer={isLoading ? null : footer}
+      showCloseButton={!isLoading}
+      isLoading={isLoading} /* <--- THIS TRIGGERS THE ELEGANT SPINNER! */
     >
-      {/* ── Tab strip ── */}
-      <div style={{
-        display: 'flex', gap: '0.35rem',
-        borderBottom: '1px solid var(--line-soft)',
-        marginBottom: '1rem',
-        paddingBottom: '0',
-      }}>
-        {TABS.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => { setActiveTab(key); if (key !== 'edit') onEditToggle(false); }}
-            style={{
-              border: 'none',
-              borderBottom: activeTab === key
-                ? '2px solid var(--brand)'
-                : '2px solid transparent',
-              borderRadius: 0,
-              background: 'none',
-              color: activeTab === key ? 'var(--brand)' : 'var(--text-muted)',
-              fontWeight: activeTab === key ? 700 : 500,
-              padding: '0.55rem 0.9rem',
-              cursor: 'pointer',
-              fontSize: '0.88rem',
-              transition: 'color 0.15s, border-color 0.15s',
-            }}
-          >
-            {label}
-            {key === 'annotate' && annotations.length > 0 && (
-              <span style={{
-                marginLeft: '0.4rem',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: '18px', height: '18px', borderRadius: '50%',
-                background: '#f59e0b', color: '#fff',
-                fontSize: '0.68rem', fontWeight: 800,
-              }}>
-                {annotations.length}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      {/* Only render the tabs and content if we are NOT loading */}
+      {!isLoading && (
+        <>
+          {/* ── Tab strip ── */}
+          <div style={{
+            display: 'flex', gap: '0.35rem',
+            borderBottom: '1px solid var(--line-soft)',
+            marginBottom: '1rem',
+            paddingBottom: '0',
+          }}>
+            {TABS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => { setActiveTab(key); if (key !== 'edit') onEditToggle(false); }}
+                style={{
+                  border: 'none',
+                  borderBottom: activeTab === key
+                    ? '2px solid var(--brand)'
+                    : '2px solid transparent',
+                  borderRadius: 0,
+                  background: 'none',
+                  color: activeTab === key ? 'var(--brand)' : 'var(--text-muted)',
+                  fontWeight: activeTab === key ? 700 : 500,
+                  padding: '0.55rem 0.9rem',
+                  cursor: 'pointer',
+                  fontSize: '0.88rem',
+                  transition: 'color 0.15s, border-color 0.15s',
+                }}
+              >
+                {label}
+                {key === 'annotate' && annotations.length > 0 && (
+                  <span style={{
+                    marginLeft: '0.4rem',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: '18px', height: '18px', borderRadius: '50%',
+                    background: '#f59e0b', color: '#fff',
+                    fontSize: '0.68rem', fontWeight: 800,
+                  }}>
+                    {annotations.length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
 
-      {/* ── Tab content ── */}
-      <div style={{ maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', overflowX: 'hidden', paddingRight: '4px' }}>
-        {renderTabContent()}
-      </div>
+          {/* ── Tab content ── */}
+          <div style={{ maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', overflowX: 'hidden', paddingRight: '4px' }}>
+            {renderTabContent()}
+          </div>
+        </>
+      )}
     </AppModal>
   );
 }
