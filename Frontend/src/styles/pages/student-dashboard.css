@@ -274,17 +274,16 @@
 }
 
 .student-stats__doc {
-  --doc-accent: var(--brand);
   display: flex;
   flex-direction: column;
   align-items: center;
   flex: 1;
   min-width: 0;
-  padding: 0.35rem 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--doc-accent) 28%, var(--line-soft));
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--line-soft);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--doc-accent) 10%, var(--bg-surface));
-  color: var(--doc-accent);
+  background: var(--bg-surface);
+  color: var(--text-main);
 }
 
 .student-stats__doc-type {
@@ -301,15 +300,10 @@
   color: inherit;
 }
 
-.student-stats__doc:nth-child(1) { --doc-accent: var(--srs); }
-.student-stats__doc:nth-child(2) { --doc-accent: var(--sdd); }
-.student-stats__doc:nth-child(3) { --doc-accent: var(--spmp); }
-.student-stats__doc:nth-child(4) { --doc-accent: var(--std); }
-
 [data-theme='dark'] .student-stats__doc {
-  background: color-mix(in srgb, var(--doc-accent) 14%, var(--bg-surface));
-  border-color: color-mix(in srgb, var(--doc-accent) 34%, var(--line-soft));
-  color: var(--doc-accent);
+  background: var(--bg-surface-2);
+  border-color: var(--line-soft);
+  color: var(--text-main);
 }
 
 /* --- Doc Type Tabs --- */
@@ -327,21 +321,21 @@
 }
 
 .student-doc-tab {
-  border-radius: 10px;
+  border-radius: 999px;
   border: 1px solid var(--line-soft);
-  background: var(--bg-surface);
-  color: var(--text-muted);
-  padding: 0.5rem 0.95rem;
-  font-size: 0.88rem;
-  font-weight: 800;
+  background: var(--bg-surface-2);
+  color: var(--text-main);
+  padding: 0.3rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer;
   transition: background 180ms ease, color 160ms ease, transform 160ms ease, box-shadow 180ms ease;
 }
 
 .student-doc-tab:hover {
-  color: var(--text-main);
-  border-color: color-mix(in srgb, var(--brand) 40%, var(--line-soft));
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 32, 51, 0.06);
 }
 
 .student-doc-tab--active {
@@ -350,77 +344,21 @@
   background: var(--brand-soft);
 }
 
-/* Type-specific colors for the quick filter tabs */
-.student-doc-tab--srs { color: var(--srs); border-color: color-mix(in srgb, var(--srs) 35%, var(--line-soft)); background: color-mix(in srgb, var(--srs) 9%, var(--bg-surface)); }
-.student-doc-tab--sdd { color: var(--sdd); border-color: color-mix(in srgb, var(--sdd) 35%, var(--line-soft)); background: color-mix(in srgb, var(--sdd) 9%, var(--bg-surface)); }
-.student-doc-tab--spmp { color: var(--spmp); border-color: color-mix(in srgb, var(--spmp) 35%, var(--line-soft)); background: color-mix(in srgb, var(--spmp) 9%, var(--bg-surface)); }
-.student-doc-tab--std { color: var(--std); border-color: color-mix(in srgb, var(--std) 35%, var(--line-soft)); background: color-mix(in srgb, var(--std) 9%, var(--bg-surface)); }
-.student-doc-tab--all { color: var(--text-muted); }
-
-/* Active state: solid, high-contrast background matching the type color */
-.student-doc-tab--srs.student-doc-tab--active {
-  background: var(--srs);
-  color: #ffffff;
-  border-color: var(--srs);
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--srs) 16%, transparent);
-}
-.student-doc-tab--sdd.student-doc-tab--active {
-  background: var(--sdd);
-  color: #ffffff;
-  border-color: var(--sdd);
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--sdd) 16%, transparent);
-}
-.student-doc-tab--spmp.student-doc-tab--active {
-  background: var(--spmp);
-  color: #ffffff;
-  border-color: var(--spmp);
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--spmp) 16%, transparent);
-}
-.student-doc-tab--std.student-doc-tab--active {
-  background: var(--std);
-  color: #ffffff;
-  border-color: var(--std);
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--std) 16%, transparent);
-}
-.student-doc-tab--all.student-doc-tab--active {
-  background: var(--bg-surface-2);
-  color: var(--text-main);
-  border-color: var(--line-soft);
-  box-shadow: 0 4px 10px var(--shadow);
-}
-
-/* Hover: lift and intensify without washing out to white */
-.student-doc-tab:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(16,32,51,0.06);
-}
-.student-doc-tab--srs:hover { background: var(--srs); color: #ffffff; }
-.student-doc-tab--sdd:hover { background: var(--sdd); color: #ffffff; }
-.student-doc-tab--spmp:hover { background: var(--spmp); color: #ffffff; }
-.student-doc-tab--std:hover { background: var(--std); color: #ffffff; }
-.student-doc-tab--all:hover { background: var(--bg-surface-2); color: var(--text-main); }
-
 [data-theme='dark'] .student-reports-card .student-doc-tabs {
   border-bottom-color: var(--line-soft);
 }
 
-/* Dark theme: keep the same tab palette as light mode */
-[data-theme='dark'] .student-doc-tab--srs { color: var(--srs); border-color: color-mix(in srgb, var(--srs) 35%, var(--line-soft)); background: color-mix(in srgb, var(--srs) 9%, var(--bg-surface)); }
-[data-theme='dark'] .student-doc-tab--sdd { color: var(--sdd); border-color: color-mix(in srgb, var(--sdd) 35%, var(--line-soft)); background: color-mix(in srgb, var(--sdd) 9%, var(--bg-surface)); }
-[data-theme='dark'] .student-doc-tab--spmp { color: var(--spmp); border-color: color-mix(in srgb, var(--spmp) 35%, var(--line-soft)); background: color-mix(in srgb, var(--spmp) 9%, var(--bg-surface)); }
-[data-theme='dark'] .student-doc-tab--std { color: var(--std); border-color: color-mix(in srgb, var(--std) 35%, var(--line-soft)); background: color-mix(in srgb, var(--std) 9%, var(--bg-surface)); }
-[data-theme='dark'] .student-doc-tab--all { color: #ffffff; }
+[data-theme='dark'] .student-doc-tab {
+  background: var(--bg-surface);
+  color: var(--text-main);
+  border-color: var(--line-soft);
+}
 
-[data-theme='dark'] .student-doc-tab--srs:hover { background: var(--srs); color: #ffffff; }
-[data-theme='dark'] .student-doc-tab--sdd:hover { background: var(--sdd); color: #ffffff; }
-[data-theme='dark'] .student-doc-tab--spmp:hover { background: var(--spmp); color: #ffffff; }
-[data-theme='dark'] .student-doc-tab--std:hover { background: var(--std); color: #ffffff; }
-[data-theme='dark'] .student-doc-tab--all:hover { background: var(--bg-surface-2); color: #ffffff; }
-
-[data-theme='dark'] .student-doc-tab--srs.student-doc-tab--active { background: var(--srs); color: #ffffff; border-color: var(--srs); }
-[data-theme='dark'] .student-doc-tab--sdd.student-doc-tab--active { background: var(--sdd); color: #ffffff; border-color: var(--sdd); }
-[data-theme='dark'] .student-doc-tab--spmp.student-doc-tab--active { background: var(--spmp); color: #ffffff; border-color: var(--spmp); }
-[data-theme='dark'] .student-doc-tab--std.student-doc-tab--active { background: var(--std); color: #ffffff; border-color: var(--std); }
+[data-theme='dark'] .student-doc-tab--active {
+  background: var(--brand-soft);
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--line-soft));
+}
 
 /* --- Table Enhancements --- */
 
@@ -429,28 +367,36 @@
 }
 
 .student-doc-badge {
-  display: inline-block;
-  font-size: 0.72rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  /* fixed sizing so all badges (SRS, SDD, SPMP, STD) align uniformly */
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 56px;
-  padding: 0.22rem 0.4rem;
-  border-radius: 6px;
+  min-width: 6.9rem;
+  padding: 0.58rem 0.9rem;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: none;
   background: var(--bg-surface-2);
-  color: var(--text-muted);
+  color: var(--text-main);
   border: 1px solid var(--line-soft);
 }
 
-/* Badge type colors stay fixed to the light-mode palette in both themes */
-.student-doc-badge--srs { background: #0b5fff; color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(11,95,255,0.22); }
-.student-doc-badge--sdd { background: #6b46c1; color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(107,70,193,0.22); }
-.student-doc-badge--spmp { background: #0f9d58; color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(15,157,88,0.22); }
-.student-doc-badge--std { background: #f97316; color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(249,115,22,0.22); }
+
+.student-doc-badge--srs,
+.student-doc-badge--sdd,
+.student-doc-badge--spmp,
+.student-doc-badge--std {
+background: var(--brand-soft);
+border-color: color-mix(in srgb, var(--brand) 40%, var(--line-soft));
+color: var(--brand);
+}
+
+[data-theme='dark'] .student-doc-badge {
+  background: var(--bg-surface-2);
+  color: var(--text-main);
+  border-color: var(--line-soft);
+}
 
 .student-status {
   display: inline-block;
@@ -496,4 +442,18 @@
   max-width: 380px;
   margin-left: auto;
   margin-right: auto;
+}
+
+/* --- Table Column Alignment Fix --- */
+
+/* Center "Type" column (2nd column) */
+.app-table th:nth-child(2),
+.app-table td:nth-child(2) {
+  text-align: center;
+}
+
+/* Center "Action" column (5th column) */
+.app-table th:nth-child(5),
+.app-table td:nth-child(5) {
+  text-align: center;
 }

@@ -674,13 +674,17 @@ export function useTeacherDashboard(showToast) {
 
   async function sendHistoryToStudent() {
     if (!selectedHistoryItem) return;
+    const id = selectedHistoryItem.id;
+    // Close modal immediately for better UX
+    closeHistoryModal();
     try {
-      await sendEvaluation(selectedHistoryItem.id);
-      const updated = { ...selectedHistoryItem, isSent: true };
-      setSelectedHistoryItem(updated);
-      setHistoryLogs((prev) => prev.map((log) => (log.id === updated.id ? updated : log)));
+      await sendEvaluation(id);
+      // Update logs to mark as sent
+      setHistoryLogs((prev) => prev.map((log) => (log.id === id ? { ...log, isSent: true } : log)));
       showToast('Result sent to Student Dashboard.', 'success');
-    } catch (err) { showToast(`Error sending report: ${err.message}`, 'error'); }
+    } catch (err) {
+      showToast(`Error sending report: ${err.message}`, 'error');
+    }
   }
 
   function closeHistoryModal() {

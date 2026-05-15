@@ -51,6 +51,15 @@ function TeacherDashboardPage({ user }) {
     setIsSubmissionHistoryFlow(true);
   }
 
+  function openSubmissionHistoryForFile(file) {
+    if (!file?.id) return;
+    vm.clearReportFilters();
+    vm.closeAnalyzeModal();
+    setSubmissionHistoryFile(file);
+    setIsSubmissionHistoryOpen(true);
+    setIsSubmissionHistoryFlow(true);
+  }
+
   function closeSubmissionHistoryModal() {
     setIsSubmissionHistoryOpen(false);
     setIsSubmissionHistoryFlow(false);
@@ -165,6 +174,7 @@ function TeacherDashboardPage({ user }) {
               analyzedFileIds={vm.analyzedFileIds}
               onSort={vm.requestSort}
               onAnalyze={vm.openAnalyzeModal}
+              onViewHistory={openSubmissionHistoryForFile}
             />
           </>
         )}
