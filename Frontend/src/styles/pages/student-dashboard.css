@@ -434,7 +434,12 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  padding: 0.25rem 0.6rem;
+  /* fixed sizing so all badges (SRS, SDD, SPMP, STD) align uniformly */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  padding: 0.22rem 0.4rem;
   border-radius: 6px;
   background: var(--bg-surface-2);
   color: var(--text-muted);

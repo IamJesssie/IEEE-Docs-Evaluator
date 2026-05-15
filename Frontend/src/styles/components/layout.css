@@ -212,23 +212,34 @@
 .student-sidebar__signout,
 .teacher-sidebar__signout {
   transition: background 180ms ease, color 160ms ease, border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+  /* show the red 'hover' appearance by default */
+  background: linear-gradient(140deg, #ef4444, #b91c1c);
+  border-color: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 8px 18px color-mix(in srgb, #ef4444 22%, transparent);
 }
 
 .student-sidebar__signout:hover,
 .teacher-sidebar__signout:hover {
-  background: linear-gradient(140deg, #ef4444, #b91c1c);
-  border-color: #ef4444;
-  color: #ffffff;
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px color-mix(in srgb, #ef4444 22%, transparent);
+  /* stronger hover state on top of the default */
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px color-mix(in srgb, #b91c1c 28%, transparent);
+  filter: saturate(1.05) contrast(1.03);
 }
 
-[data-theme='dark'] .student-sidebar__signout:hover,
-[data-theme='dark'] .teacher-sidebar__signout:hover {
+[data-theme='dark'] .student-sidebar__signout,
+[data-theme='dark'] .teacher-sidebar__signout {
+  /* dark-theme default red appearance */
   background: linear-gradient(140deg, #f87171, #dc2626);
   border-color: #f87171;
   color: #ffffff;
   box-shadow: 0 8px 18px color-mix(in srgb, #dc2626 28%, transparent);
+}
+
+[data-theme='dark'] .student-sidebar__signout:hover,
+[data-theme='dark'] .teacher-sidebar__signout:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px color-mix(in srgb, #dc2626 34%, transparent);
 }
 
 .btn--soft {
