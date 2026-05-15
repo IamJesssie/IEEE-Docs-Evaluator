@@ -50,7 +50,7 @@ function TeacherSidebar({ currentView, onNavigate, onTutorialStart }) {
         {NAV_ITEMS.map((item) => (
           <button
             key={item.key}
-            className={`nav-btn ${currentView === item.key ? 'nav-btn--active' : ''}`}
+            className={`nav-btn nav-btn--${item.key} ${currentView === item.key ? 'nav-btn--active' : ''}`}
             onClick={() => onNavigate(item.key)}
           >
             {item.label}

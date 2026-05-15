@@ -7,9 +7,28 @@ function clamp(value, min, max) {
 
 function getTargetRect(selector) {
   if (!selector) return null;
-  const el = document.querySelector(selector);
-  if (!el) return null;
-  return el.getBoundingClientRect();
+  const elements = document.querySelectorAll(selector);
+  if (!elements.length) return null;
+
+  const rects = Array.from(elements)
+    .map((element) => element.getBoundingClientRect())
+    .filter((rect) => rect.width > 0 && rect.height > 0);
+
+  if (!rects.length) return null;
+
+  const left = Math.min(...rects.map((rect) => rect.left));
+  const top = Math.min(...rects.map((rect) => rect.top));
+  const right = Math.max(...rects.map((rect) => rect.right));
+  const bottom = Math.max(...rects.map((rect) => rect.bottom));
+
+  return {
+    left,
+    top,
+    width: right - left,
+    height: bottom - top,
+    right,
+    bottom,
+  };
 }
 
 function TutorialOverlay({
@@ -52,7 +71,7 @@ function TutorialOverlay({
   const hasNext = stepIndex < steps.length - 1;
 
   const tooltipStyle = useMemo(() => {
-    const padding = 16;
+    const padding = 10;
     const width = 320;
     const maxLeft = window.innerWidth - width - padding;
 
@@ -92,10 +111,11 @@ function TutorialOverlay({
         <div
           className="tutorial-spotlight"
           style={{
-            top: targetRect.top - 6,
-            left: targetRect.left - 6,
-            width: targetRect.width + 12,
-            height: targetRect.height + 12,
+            top: targetRect.top + (targetRect.height / 2),
+            left: targetRect.left + (targetRect.width / 2),
+            width: targetRect.width + 8,
+            height: targetRect.height + 8,
+            transform: 'translate(-50%, -50%)',
           }}
         />
       )}

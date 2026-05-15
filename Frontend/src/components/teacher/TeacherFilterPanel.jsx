@@ -85,7 +85,7 @@ function TeacherFilterPanel({
               <button
                 type="button"
                 onClick={() => onDocTypeChange('')}
-                className={`document-link ${selectedDocType === '' ? 'document-link--active' : ''}`}
+                className={`document-link document-link--all ${selectedDocType === '' ? 'document-link--active' : ''}`}
                 title="Show all document types"
               >
                 All
@@ -96,7 +96,7 @@ function TeacherFilterPanel({
                 <button
                   type="button"
                   onClick={() => onDocTypeChange(docType)}
-                  className={`document-link ${selectedDocType === docType ? 'document-link--active' : ''}`}
+                  className={`document-link document-link--${docType.toLowerCase().replace(/\s+/g, '-')} ${selectedDocType === docType ? 'document-link--active' : ''}`}
                   title={`Filter by ${docType}`}
                 >
                   {docType}
@@ -115,7 +115,7 @@ function TeacherFilterPanel({
                   <button
                     type="button"
                     onClick={() => onStatusChange(status.value)}
-                    className={`document-link ${selectedStatus === status.value ? 'document-link--active' : ''}`}
+                    className={`document-link document-link--${status.value || 'all'} ${selectedStatus === status.value ? 'document-link--active' : ''}`}
                     title={`Filter by ${status.label} status`}
                   >
                     {status.label}

@@ -102,27 +102,27 @@ function StudentDashboardPage({ studentData }) {
           </div>
         </section>
 
-        <nav className="student-doc-tabs" aria-label="Filter by document type">
-          <button
-            type="button"
-            className={`student-doc-tab${vm.selectedDocType === '' ? ' student-doc-tab--active' : ''}`}
-            onClick={() => vm.setSelectedDocType('')}
-          >
-            All
-          </button>
-          {vm.docTypes.map((dt) => (
+        <div className="card student-reports-card">
+          <nav className="student-doc-tabs" aria-label="Filter by document type">
             <button
-              key={dt}
               type="button"
-              className={`student-doc-tab${vm.selectedDocType === dt ? ' student-doc-tab--active' : ''}`}
-              onClick={() => vm.setSelectedDocType(dt)}
+              className={`student-doc-tab student-doc-tab--all${vm.selectedDocType === '' ? ' student-doc-tab--active' : ''}`}
+              onClick={() => vm.setSelectedDocType('')}
             >
-              {dt}
+              All
             </button>
-          ))}
-        </nav>
+            {vm.docTypes.map((dt) => (
+              <button
+                key={dt}
+                type="button"
+                className={`student-doc-tab student-doc-tab--${dt.toLowerCase().replace(/\s+/g, '-')}${vm.selectedDocType === dt ? ' student-doc-tab--active' : ''}`}
+                onClick={() => vm.setSelectedDocType(dt)}
+              >
+                {dt}
+              </button>
+            ))}
+          </nav>
 
-        <div className="card">
           <StudentReportsTable
             reports={vm.reports}
             loading={vm.loading}
