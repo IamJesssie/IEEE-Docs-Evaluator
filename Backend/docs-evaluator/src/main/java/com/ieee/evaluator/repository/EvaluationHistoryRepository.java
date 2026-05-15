@@ -13,17 +13,17 @@ import java.util.Optional;
 @Repository
 public interface EvaluationHistoryRepository extends JpaRepository<EvaluationHistory, Long> {
 
-    // Only returns non-deleted records — includes version
+    // Only returns non-deleted records — includes version and evaluationResult
     @Query("SELECT new com.ieee.evaluator.model.EvaluationHistorySummaryDTO(" +
-           "h.id, h.fileId, h.fileName, h.modelUsed, h.evaluatedAt, h.isSent, h.version) " +
+           "h.id, h.fileId, h.fileName, h.modelUsed, h.evaluatedAt, h.isSent, h.version, h.evaluationResult) " +
            "FROM EvaluationHistory h " +
            "WHERE h.isDeleted = false " +
            "ORDER BY h.evaluatedAt DESC")
     List<EvaluationHistorySummaryDTO> findAllSummaries();
 
-    // Only returns non-deleted sent records for a given group code — includes version
+    // Only returns non-deleted sent records for a given group code — includes version and evaluationResult
     @Query("SELECT new com.ieee.evaluator.model.EvaluationHistorySummaryDTO(" +
-           "h.id, h.fileId, h.fileName, h.modelUsed, h.evaluatedAt, h.isSent, h.version) " +
+           "h.id, h.fileId, h.fileName, h.modelUsed, h.evaluatedAt, h.isSent, h.version, h.evaluationResult) " +
            "FROM EvaluationHistory h " +
            "WHERE h.isSent = true " +
            "AND h.isDeleted = false " +

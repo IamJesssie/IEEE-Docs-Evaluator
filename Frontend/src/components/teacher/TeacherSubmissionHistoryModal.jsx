@@ -12,60 +12,51 @@ function TeacherSubmissionHistoryModal({ isOpen, file, logs, onViewReport, onDel
 
 	function detectExplicitStatus(text) {
 		if (!text) return null;
-		const normalized = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-		// Matches the formats actually emitted by the evaluator, such as:
-		// **Status**: IMPROVED
-		// **Status**: [IMPROVED]
-		// Status: WORSENED
-		const match = normalized.match(/(?:\*\*|\*)?\s*Status\s*(?:\*\*|\*)?\s*:\s*\[?(IMPROVED|WORSENED|SAME|PARTIALLY IMPROVED)\]?/i);
-		if (match) return match[1].toUpperCase();
-
-		// Fallback: sometimes the status appears inside the revision analysis block.
-		const revisionSection = normalized.split(/Revision\s+Analysis/i)[1];
-		if (revisionSection) {
-			const upper = revisionSection.toUpperCase();
-			if (upper.includes('PARTIALLY IMPROVED')) return 'PARTIALLY IMPROVED';
-			if (upper.includes('IMPROVED')) return 'IMPROVED';
-			if (upper.includes('WORSENED')) return 'WORSENED';
-			if (upper.includes('SAME')) return 'SAME';
-		}
-
-		return null;
+		const match = String(text).match(/\*{0,2}\s*Status\s*\*{0,2}\s*:\s*\[?(IMPROVED|WORSENED|SAME)\]?/i);
+		return match ? match[1].toUpperCase() : null;
 	}
 
+	/**
+	 * Priority order:
+	 * 1. AI's written **Status**: verdict — explicit, most reliable
+	 * 2. Score delta between versions — fallback for edge cases where AI omitted the Status line
+	 * 3. INITIAL — when neither is available (first evaluation or no score found)
+	 */
 	function computeStatus(log, index) {
+		// Tier 1: AI's written verdict
 		const explicit = detectExplicitStatus(log.evaluationResult);
 		if (explicit) return explicit;
 
-		// Version 1 is always INITIAL — no previous to compare against
-		if (log.version === 1) return 'INITIAL';
+		// Tier 2: score delta fallback
+		if (log.version !== 1) {
+			const currentScore  = parseOverallScore(log.evaluationResult);
+			const previousLog   = logs[index + 1];
+			if (previousLog) {
+				const previousScore = parseOverallScore(previousLog.evaluationResult);
+				if (currentScore != null && previousScore != null) {
+					if (currentScore > previousScore) return 'IMPROVED';
+					if (currentScore < previousScore) return 'WORSENED';
+					return 'SAME';
+				}
+			}
+		}
 
-		const currentScore  = parseOverallScore(log.evaluationResult);
-		const previousLog   = logs[index + 1];
-		if (!previousLog) return 'INITIAL';
-
-		const previousScore = parseOverallScore(previousLog.evaluationResult);
-		if (currentScore == null || previousScore == null) return 'SAME';
-		if (currentScore > previousScore) return 'IMPROVED';
-		if (currentScore < previousScore) return 'WORSENED';
-		return 'SAME';
+		// Tier 3: no data available
+		return 'INITIAL';
 	}
 
 	function statusClass(status) {
 		switch (status) {
 			case 'IMPROVED': return 'eval-status-badge eval-status-badge--improved';
-			case 'PARTIALLY IMPROVED': return 'eval-status-badge eval-status-badge--improved';
 			case 'WORSENED': return 'eval-status-badge eval-status-badge--worsened';
 			case 'INITIAL':  return 'eval-status-badge eval-status-badge--same';
 			default:         return 'eval-status-badge eval-status-badge--same';
 		}
 	}
 
-	// Compute score trend for compelling demo moment
 	const scoreTrend = logs
 		.slice()
-		.reverse() // oldest first
+		.reverse()
 		.map((log) => parseOverallScore(log.evaluationResult))
 		.filter((s) => s !== null);
 
@@ -152,8 +143,8 @@ function TeacherSubmissionHistoryModal({ isOpen, file, logs, onViewReport, onDel
 											</span>
 										</td>
 										<td>
-											<div 
-												className="modal-actions submission-history-modal__row-actions" 
+											<div
+												className="modal-actions submission-history-modal__row-actions"
 												style={{ justifyContent: 'center' }}>
 												<button className="btn btn--soft" onClick={() => onViewReport(log)}>
 													View Details
