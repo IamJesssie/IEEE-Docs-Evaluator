@@ -6,8 +6,8 @@ function TeacherHistoryTable({ logs, allCount = 0, loading, onView, onDelete }) 
       <table className="app-table">
         <thead>
           <tr>
-            <th>Date Analyzed</th>
             <th>Document Name</th>
+            <th style={{ textAlign: 'left' }}>Date Analyzed</th>
             <th>Model</th>
             <th>Status</th>
             <th>Action</th>
@@ -27,8 +27,8 @@ function TeacherHistoryTable({ logs, allCount = 0, loading, onView, onDelete }) 
           ) : (
             logs.map((log) => (
               <tr key={log.id}>
-                <td>{formatDateTime(log.evaluatedAt)}</td>
                 <td className="strong">{log.fileName}</td>
+                <td style={{ textAlign: 'left' }}>{formatDateTime(log.evaluatedAt)}</td>
                 <td>{log.modelUsed}</td>
                 <td>
                   <span className={`status-chip ${log.isSent ? 'status-chip--sent' : 'status-chip--pending'}`}>
