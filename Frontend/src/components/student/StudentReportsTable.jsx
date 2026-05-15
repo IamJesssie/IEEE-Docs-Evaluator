@@ -49,7 +49,11 @@ function StudentReportsTable({ reports, loading, viewedIds = [], onOpen }) {
                 </a>
               </td>
               <td>
-                {docType && <span className="student-doc-badge">{docType}</span>}
+                {docType && (
+                  <span className={`student-doc-badge student-doc-badge--${docType.toLowerCase().replace(/\s+/g, '-')}`}>
+                    {docType}
+                  </span>
+                )}
               </td>
               <td>{formatDateTime(report.evaluatedAt)}</td>
               <td>
