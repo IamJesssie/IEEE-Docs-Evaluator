@@ -1,16 +1,16 @@
 import { getDisplayType } from '../../utils/dashboardUtils';
 import { formatDateTime } from '../../utils/dashboardUtils';
 
-function TeacherSubmissionsTable({ files, loading, isSyncing, analyzedFileIds, onSort, onAnalyze }) {
+function TeacherSubmissionsTable({ files, loading, isSyncing, analyzedFileIds, onSort, onAnalyze, onViewHistory }) {
   return (
     <div className="card">
       <table className="app-table" id="teacher-submission-table">
         <thead>
           <tr>
-            <th onClick={() => onSort('name')}>Submission Identity</th>
-            <th>Type</th>
+            <th>Submission Identity</th>
+            <th className="teacher-submissions__type-col" onClick={() => onSort('mimeType')}>Submission Type</th>
             <th onClick={() => onSort('date')}>Date Submitted</th>
-            <th>Actions</th>
+            <th className="teacher-submissions__actions-col">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -30,12 +30,17 @@ function TeacherSubmissionsTable({ files, loading, isSyncing, analyzedFileIds, o
                     {file.name}
                   </a>
                 </td>
-                <td>{getDisplayType(file.mimeType)}</td>
+                <td className="teacher-submissions__type-col">{getDisplayType(file.mimeType)}</td>
                 <td>{formatDateTime(file.submittedAt)}</td>
-                <td>
-                  <button className="btn btn--soft" onClick={() => onAnalyze(file)}>
-                    {analyzedFileIds?.has(file.id) ? 'Re-Evaluate' : 'Run AI Analysis'}
-                  </button>
+                <td className="teacher-submissions__actions-col">
+                  <div className="teacher-submissions__actions">
+                    <button className="btn btn--soft teacher-submissions__action-btn" onClick={() => onAnalyze(file)}>
+                      {analyzedFileIds?.has(file.id) ? 'Re-Evaluate' : 'Run AI Analysis'}
+                    </button>
+                    <button className="btn btn--soft teacher-submissions__history-btn" onClick={() => onViewHistory?.(file)}>
+                      View History
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))

@@ -13,7 +13,31 @@ export function formatDateTime(value) {
   });
 }
 
-export function getDisplayType(mimeType) {
+function inferMimeType(value) {
+  if (!value) return '';
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  const mimeType = String(value.mimeType || '').trim();
+  const webViewLink = String(value.webViewLink || '').toLowerCase();
+  const name = String(value.name || '').toLowerCase();
+
+  if (mimeType) return mimeType;
+  if (webViewLink.includes('/folders/')) return 'application/vnd.google-apps.folder';
+  if (webViewLink.includes('/document/d/')) return 'application/vnd.google-apps.document';
+  if (webViewLink.includes('.pdf') || name.endsWith('.pdf')) return 'application/pdf';
+  if (webViewLink.includes('.docx') || name.endsWith('.docx')) {
+    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  }
+
+  return '';
+}
+
+export function getDisplayType(value) {
+  const mimeType = inferMimeType(value);
+
   switch (mimeType) {
     case 'application/vnd.google-apps.document':
       return 'Google Doc';
@@ -120,16 +144,30 @@ export function filterSubmissions(files = [], filters = {}) {
 export function sortSubmissions(files, sortConfig) {
   const items = [...files];
   return items.sort((a, b) => {
+    // 1. Sort by File Name
     if (sortConfig.key === 'name') {
       return sortConfig.direction === 'asc'
         ? a.name.localeCompare(b.name)
         : b.name.localeCompare(a.name);
     }
+    
+    // 2. Sort by Display Type (The Fix!)
+    if (sortConfig.key === 'mimeType') {
+      const typeA = getDisplayType(a);
+      const typeB = getDisplayType(b);
+      
+      return sortConfig.direction === 'asc'
+        ? typeA.localeCompare(typeB)
+        : typeB.localeCompare(typeA);
+    }
+    
+    // 3. Sort by Date
     if (sortConfig.key === 'date') {
       return sortConfig.direction === 'asc'
         ? new Date(a.submittedAt) - new Date(b.submittedAt)
         : new Date(b.submittedAt) - new Date(a.submittedAt);
     }
+    
     return 0;
   });
 }

@@ -211,35 +211,36 @@
 
 .student-sidebar__signout,
 .teacher-sidebar__signout {
+  width: 100%;
+  text-align: center;
+  margin-top: .8rem;
   transition: background 180ms ease, color 160ms ease, border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
-  /* show the red 'hover' appearance by default */
-  background: linear-gradient(140deg, #ef4444, #b91c1c);
-  border-color: #ef4444;
-  color: #ffffff;
-  box-shadow: 0 8px 18px color-mix(in srgb, #ef4444 22%, transparent);
+  background: transparent;
+  color: var(--sidebar-text);
+  border-color: var(--sidebar-border);
 }
 
 .student-sidebar__signout:hover,
 .teacher-sidebar__signout:hover {
-  /* stronger hover state on top of the default */
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px color-mix(in srgb, #b91c1c 28%, transparent);
-  filter: saturate(1.05) contrast(1.03);
+  background: color-mix(in srgb, #ef4444 10%, var(--bg-surface-2));
+  border-color: color-mix(in srgb, #ef4444 22%, var(--sidebar-border));
+  color: #b91c1c;
+  transform: translateY(-1px);
 }
 
 [data-theme='dark'] .student-sidebar__signout,
 [data-theme='dark'] .teacher-sidebar__signout {
-  /* dark-theme default red appearance */
-  background: linear-gradient(140deg, #f87171, #dc2626);
-  border-color: #f87171;
-  color: #ffffff;
-  box-shadow: 0 8px 18px color-mix(in srgb, #dc2626 28%, transparent);
+  background: transparent;
+  border-color: var(--sidebar-border);
+  color: var(--sidebar-text);
 }
 
 [data-theme='dark'] .student-sidebar__signout:hover,
 [data-theme='dark'] .teacher-sidebar__signout:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px color-mix(in srgb, #dc2626 34%, transparent);
+  background: color-mix(in srgb, #f87171 12%, var(--bg-surface));
+  border-color: color-mix(in srgb, #f87171 24%, var(--sidebar-border));
+  color: #fca5a5;
+  transform: translateY(-1px);
 }
 
 .btn--soft {
