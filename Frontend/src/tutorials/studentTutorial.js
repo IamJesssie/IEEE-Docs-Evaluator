@@ -32,7 +32,7 @@ export const studentTutorialSteps = [
     placement: 'bottom',
   },
   {
-    target: '.student-doc-tabs',
+    target: '.student-doc-tabs .student-doc-tab',
     content: 'Filter evaluations by document type. Choose "All" to see everything.',
     placement: 'bottom',
   },
