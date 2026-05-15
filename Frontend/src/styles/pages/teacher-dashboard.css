@@ -98,48 +98,100 @@
   color: var(--brand);
 }
 
+.nav-btn--submissions {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  border-color: 1px solid rgba(148, 163, 184, 0.6);
+  border-radius: 0.6rem;
+  font-weight: 800;
+}
+
+.nav-btn--reports {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  border-color: 1px solid rgba(148, 163, 184, 0.6);
+  border-radius: 0.6rem;
+  font-weight: 800;
+}
+
+.nav-btn--workspace {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  border-color: 1px solid rgba(148, 163, 184, 0.6);
+  border-radius: 0.6rem;
+  font-weight: 800;
+}
+
+.nav-btn--settings {
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  border-color: 1px solid rgba(148, 163, 184, 0.6);
+  border-radius: 0.6rem;
+  color: #ffffff;
+  font-weight: 800;
+}
+
 .nav-btn--submissions:hover {
-  border-color: var(--srs);
-  background: color-mix(in srgb, var(--srs) 18%, transparent);
-  color: var(--srs);
+  transform: translateX(6px) scale(1.03);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--srs) 28%, transparent);
 }
 
 .nav-btn--reports:hover {
-  border-color: var(--sdd);
-  background: color-mix(in srgb, var(--sdd) 18%, transparent);
-  color: var(--sdd);
+  transform: translateX(6px) scale(1.03);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--sdd) 28%, transparent);
 }
 
 .nav-btn--workspace:hover {
-  border-color: var(--spmp);
-  background: color-mix(in srgb, var(--spmp) 18%, transparent);
-  color: var(--spmp);
+  transform: translateX(6px) scale(1.03);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--spmp) 28%, transparent);
 }
 
 .nav-btn--settings:hover {
-  border-color: var(--std);
-  background: color-mix(in srgb, var(--std) 18%, transparent);
-  color: var(--std);
+  transform: translateX(6px) scale(1.03);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--std) 28%, transparent);
+}
+
+/* Active (clicked) state uses a lighter, subtle colored background */
+.nav-btn--submissions.nav-btn--active {
+  border-color: var(--srs);
+  background: color-mix(in srgb, var(--srs) 12%, rgba(255,255,255,0.08));
+  color: #ffffff;
+}
+
+.nav-btn--reports.nav-btn--active {
+  border-color: var(--sdd);
+  background: color-mix(in srgb, var(--sdd) 12%, rgba(255,255,255,0.08));
+  color: #ffffff;
+}
+
+.nav-btn--workspace.nav-btn--active {
+  border-color: 1px solid rgba(148, 163, 184, 0.6);
+  color: #ffffff;
+}
+
+.nav-btn--settings.nav-btn--active {
+  border-color: 1px solid rgba(148, 163, 184, 0.6);
+  background: transparent;
+  color: #ffffff;
 }
 
 [data-theme='dark'] .nav-btn--submissions:hover {
-  background: var(--srs);
-  color: #ffffff;
+  transform: translateX(6px) scale(1.03);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--srs) 28%, transparent);
 }
 
 [data-theme='dark'] .nav-btn--reports:hover {
-  background: var(--sdd);
-  color: #ffffff;
+  transform: translateX(6px) scale(1.03);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--sdd) 28%, transparent);
 }
 
 [data-theme='dark'] .nav-btn--workspace:hover {
-  background: var(--spmp);
-  color: #ffffff;
+  transform: translateX(6px) scale(1.03);
+  
 }
 
 [data-theme='dark'] .nav-btn--settings:hover {
-  background: var(--std);
-  color: #ffffff;
+  transform: translateX(6px) scale(1.03);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--std) 28%, transparent);
 }
 
 .status-chip {
