@@ -25,6 +25,15 @@
   --glow: rgba(0, 116, 217, 0.2);
   --ok: #00875a;
   --warn: #b98900;
+  /* Doc type colors */
+  --srs: #0b5fff;
+  --sdd: #6b46c1;
+  --spmp: #0f9d58;
+  --std: #f97316;
+  --srs-rgb: 11,95,255;
+  --sdd-rgb: 107,70,193;
+  --spmp-rgb: 15,157,88;
+  --std-rgb: 249,115,22;
 }
 
 [data-theme='dark'] {
@@ -50,6 +59,15 @@
   --sidebar-border: #4a5262;
   --shadow: rgba(0, 0, 0, 0.24);
   --glow: rgba(127, 179, 255, 0.18);
+  /* Doc type colors (dark theme tweaks) */
+  --srs: #7fb3ff;
+  --sdd: #b794f4;
+  --spmp: #7fd39a;
+  --std: #ffb380;
+  --srs-rgb: 127,179,255;
+  --sdd-rgb: 183,148,244;
+  --spmp-rgb: 127,211,154;
+  --std-rgb: 255,179,128;
 }
 
 .layout {
@@ -89,6 +107,9 @@
 
 .card__title {
   margin: 0 0 0.8rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
   color: var(--text-main);
 }
 
@@ -104,11 +125,19 @@
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: var(--bg-surface);
+  box-shadow: 0 8px 20px var(--shadow);
 }
 
 .panel-header__title {
   margin: 0;
   font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
   color: var(--text-main);
 }
 
@@ -178,6 +207,28 @@
   background: transparent;
   color: var(--sidebar-text);
   border-color: var(--sidebar-border);
+}
+
+.student-sidebar__signout,
+.teacher-sidebar__signout {
+  transition: background 180ms ease, color 160ms ease, border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.student-sidebar__signout:hover,
+.teacher-sidebar__signout:hover {
+  background: linear-gradient(140deg, #ef4444, #b91c1c);
+  border-color: #ef4444;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px color-mix(in srgb, #ef4444 22%, transparent);
+}
+
+[data-theme='dark'] .student-sidebar__signout:hover,
+[data-theme='dark'] .teacher-sidebar__signout:hover {
+  background: linear-gradient(140deg, #f87171, #dc2626);
+  border-color: #f87171;
+  color: #ffffff;
+  box-shadow: 0 8px 18px color-mix(in srgb, #dc2626 28%, transparent);
 }
 
 .btn--soft {
