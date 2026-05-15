@@ -203,19 +203,26 @@
 }
 
 .student-header-search {
-  border-radius: 10px;
-  border: 1px solid var(--line-soft);
-  background: var(--bg-surface);
+  border-radius: 12px;
+  border: 2px solid color-mix(in srgb, var(--brand) 28%, var(--line-soft));
+  background: color-mix(in srgb, var(--brand) 4%, var(--bg-surface));
   color: var(--text-main);
-  padding: 0.55rem 0.75rem;
+  padding: 0.6rem 0.9rem;
   font-size: 0.88rem;
   outline: none;
-  min-width: 200px;
+  min-width: 260px;
+  box-shadow: 0 3px 10px var(--shadow);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
 .student-header-search:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--glow);
+  box-shadow: 0 0 0 3px var(--glow), 0 6px 16px color-mix(in srgb, var(--brand) 10%, transparent);
+}
+
+.student-header-search::placeholder {
+  color: var(--text-muted);
+  opacity: 0.9;
 }
 
 /* --- Stats Bar --- */
@@ -267,15 +274,17 @@
 }
 
 .student-stats__doc {
+  --doc-accent: var(--brand);
   display: flex;
   flex-direction: column;
   align-items: center;
   flex: 1;
   min-width: 0;
   padding: 0.35rem 0.55rem;
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  background: var(--bg-surface-2);
+  border: 1px solid color-mix(in srgb, var(--doc-accent) 28%, var(--line-soft));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--doc-accent) 10%, var(--bg-surface));
+  color: var(--doc-accent);
 }
 
 .student-stats__doc-type {
@@ -283,13 +292,24 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: var(--text-muted);
+  color: inherit;
 }
 
 .student-stats__doc-count {
   font-size: 1.2rem;
   font-weight: 800;
-  color: var(--text-main);
+  color: inherit;
+}
+
+.student-stats__doc:nth-child(1) { --doc-accent: var(--srs); }
+.student-stats__doc:nth-child(2) { --doc-accent: var(--sdd); }
+.student-stats__doc:nth-child(3) { --doc-accent: var(--spmp); }
+.student-stats__doc:nth-child(4) { --doc-accent: var(--std); }
+
+[data-theme='dark'] .student-stats__doc {
+  background: color-mix(in srgb, var(--doc-accent) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--doc-accent) 34%, var(--line-soft));
+  color: var(--doc-accent);
 }
 
 /* --- Doc Type Tabs --- */
@@ -300,16 +320,23 @@
   margin-bottom: 0.75rem;
 }
 
+.student-reports-card .student-doc-tabs {
+  margin-bottom: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
 .student-doc-tab {
   border-radius: 10px;
   border: 1px solid var(--line-soft);
   background: var(--bg-surface);
   color: var(--text-muted);
-  padding: 0.45rem 0.85rem;
-  font-size: 0.82rem;
-  font-weight: 700;
+  padding: 0.5rem 0.95rem;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 180ms ease, color 160ms ease, transform 160ms ease, box-shadow 180ms ease;
 }
 
 .student-doc-tab:hover {
@@ -323,6 +350,78 @@
   background: var(--brand-soft);
 }
 
+/* Type-specific colors for the quick filter tabs */
+.student-doc-tab--srs { color: var(--srs); border-color: color-mix(in srgb, var(--srs) 35%, var(--line-soft)); background: color-mix(in srgb, var(--srs) 9%, var(--bg-surface)); }
+.student-doc-tab--sdd { color: var(--sdd); border-color: color-mix(in srgb, var(--sdd) 35%, var(--line-soft)); background: color-mix(in srgb, var(--sdd) 9%, var(--bg-surface)); }
+.student-doc-tab--spmp { color: var(--spmp); border-color: color-mix(in srgb, var(--spmp) 35%, var(--line-soft)); background: color-mix(in srgb, var(--spmp) 9%, var(--bg-surface)); }
+.student-doc-tab--std { color: var(--std); border-color: color-mix(in srgb, var(--std) 35%, var(--line-soft)); background: color-mix(in srgb, var(--std) 9%, var(--bg-surface)); }
+.student-doc-tab--all { color: var(--text-muted); }
+
+/* Active state: solid, high-contrast background matching the type color */
+.student-doc-tab--srs.student-doc-tab--active {
+  background: var(--srs);
+  color: #ffffff;
+  border-color: var(--srs);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--srs) 16%, transparent);
+}
+.student-doc-tab--sdd.student-doc-tab--active {
+  background: var(--sdd);
+  color: #ffffff;
+  border-color: var(--sdd);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--sdd) 16%, transparent);
+}
+.student-doc-tab--spmp.student-doc-tab--active {
+  background: var(--spmp);
+  color: #ffffff;
+  border-color: var(--spmp);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--spmp) 16%, transparent);
+}
+.student-doc-tab--std.student-doc-tab--active {
+  background: var(--std);
+  color: #ffffff;
+  border-color: var(--std);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--std) 16%, transparent);
+}
+.student-doc-tab--all.student-doc-tab--active {
+  background: var(--bg-surface-2);
+  color: var(--text-main);
+  border-color: var(--line-soft);
+  box-shadow: 0 4px 10px var(--shadow);
+}
+
+/* Hover: lift and intensify without washing out to white */
+.student-doc-tab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16,32,51,0.06);
+}
+.student-doc-tab--srs:hover { background: var(--srs); color: #ffffff; }
+.student-doc-tab--sdd:hover { background: var(--sdd); color: #ffffff; }
+.student-doc-tab--spmp:hover { background: var(--spmp); color: #ffffff; }
+.student-doc-tab--std:hover { background: var(--std); color: #ffffff; }
+.student-doc-tab--all:hover { background: var(--bg-surface-2); color: var(--text-main); }
+
+[data-theme='dark'] .student-reports-card .student-doc-tabs {
+  border-bottom-color: var(--line-soft);
+}
+
+/* Dark theme: keep the same tab palette as light mode */
+[data-theme='dark'] .student-doc-tab--srs { color: var(--srs); border-color: color-mix(in srgb, var(--srs) 35%, var(--line-soft)); background: color-mix(in srgb, var(--srs) 9%, var(--bg-surface)); }
+[data-theme='dark'] .student-doc-tab--sdd { color: var(--sdd); border-color: color-mix(in srgb, var(--sdd) 35%, var(--line-soft)); background: color-mix(in srgb, var(--sdd) 9%, var(--bg-surface)); }
+[data-theme='dark'] .student-doc-tab--spmp { color: var(--spmp); border-color: color-mix(in srgb, var(--spmp) 35%, var(--line-soft)); background: color-mix(in srgb, var(--spmp) 9%, var(--bg-surface)); }
+[data-theme='dark'] .student-doc-tab--std { color: var(--std); border-color: color-mix(in srgb, var(--std) 35%, var(--line-soft)); background: color-mix(in srgb, var(--std) 9%, var(--bg-surface)); }
+[data-theme='dark'] .student-doc-tab--all { color: #ffffff; }
+
+[data-theme='dark'] .student-doc-tab--srs:hover { background: var(--srs); color: #ffffff; }
+[data-theme='dark'] .student-doc-tab--sdd:hover { background: var(--sdd); color: #ffffff; }
+[data-theme='dark'] .student-doc-tab--spmp:hover { background: var(--spmp); color: #ffffff; }
+[data-theme='dark'] .student-doc-tab--std:hover { background: var(--std); color: #ffffff; }
+[data-theme='dark'] .student-doc-tab--all:hover { background: var(--bg-surface-2); color: #ffffff; }
+
+[data-theme='dark'] .student-doc-tab--srs.student-doc-tab--active { background: var(--srs); color: #ffffff; border-color: var(--srs); }
+[data-theme='dark'] .student-doc-tab--sdd.student-doc-tab--active { background: var(--sdd); color: #ffffff; border-color: var(--sdd); }
+[data-theme='dark'] .student-doc-tab--spmp.student-doc-tab--active { background: var(--spmp); color: #ffffff; border-color: var(--spmp); }
+[data-theme='dark'] .student-doc-tab--std.student-doc-tab--active { background: var(--std); color: #ffffff; border-color: var(--std); }
+
 /* --- Table Enhancements --- */
 
 .student-row--new {
@@ -332,15 +431,21 @@
 .student-doc-badge {
   display: inline-block;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  padding: 0.2rem 0.5rem;
+  padding: 0.25rem 0.6rem;
   border-radius: 6px;
   background: var(--bg-surface-2);
   color: var(--text-muted);
   border: 1px solid var(--line-soft);
 }
+
+/* Badge type colors stay fixed to the light-mode palette in both themes */
+.student-doc-badge--srs { background: #0b5fff; color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(11,95,255,0.22); }
+.student-doc-badge--sdd { background: #6b46c1; color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(107,70,193,0.22); }
+.student-doc-badge--spmp { background: #0f9d58; color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(15,157,88,0.22); }
+.student-doc-badge--std { background: #f97316; color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(249,115,22,0.22); }
 
 .student-status {
   display: inline-block;
