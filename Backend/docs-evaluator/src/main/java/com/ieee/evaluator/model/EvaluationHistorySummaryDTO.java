@@ -14,4 +14,5 @@ public class EvaluationHistorySummaryDTO {
     private LocalDateTime evaluatedAt;
     private Boolean isSent;
     private Integer version;
+    private String evaluationResult;
 }
